@@ -27,7 +27,7 @@ echo 0 > /pf/boot_completed
 echo boot-0 > /pf/boot_id
 cat > /usr/local/bin/getprop <<'G'
 #!/bin/sh
-[ "$1" = sys.boot_completed ] && { cat /pf/boot_completed; exit 0; }
+[ "$1" = sys.boot_completed ] && { read v < /pf/boot_completed; echo "$v"; exit 0; }
 echo ""
 G
 chmod +x /usr/local/bin/getprop
@@ -109,7 +109,7 @@ wait "$SVC"
 check "정상 부팅 확인 후 pending 삭제" '[ ! -f $STATE/pending ] && [ "$(cat $STATE/fails)" = 0 ]'
 check "info: applied 11/11, 이유=ok" '[ "$(istate)" = applied ] && [ "$(reason)" = ok ] && info | grep -q "^mounted=11$"'
 check "info: 묶음별 상태" 'info | grep -q "^group.Roboto=applied 8/8$" && info | grep -q "^group.Mobis=applied 2/2$" && info | grep -q "^group.NanumGothic=applied 1/1$"'
-check "info: 버전 정보" 'info | grep -q "^package=0.5$" && info | grep -q "^pretendard=1.3.9$"'
+check "info: 버전 정보" 'info | grep -q "^package=0.6$" && info | grep -q "^pretendard=1.3.9$"'
 
 echo "== 3. 같은 부팅에서 서비스 재실행 (svcmgr 재시작)"
 echo boot-1 > $STATE/pending
@@ -117,6 +117,22 @@ run_svc
 check "실패로 세지 않음" '[ "$(cat $STATE/fails)" = 0 ] && [ ! -f $STATE/disabled ]'
 check "마운트 중복 없음" '[ "$(nmounts)" = 11 ]'
 rm -f $STATE/pending
+
+echo "== 3b. 부팅 경로에서 띄우는 프로세스 (실차: fork 하나가 수십 ms)"
+reboot_sim 30
+for t in cat grep ls; do
+    real=$(readlink -f /system/bin/$t); eval "REAL_$t=$real"; rm -f /system/bin/$t
+    printf '#!/bin/sh\necho %s >> /pf/forks\nexec %s "$@"\n' "$t" "$real" > /system/bin/$t; chmod +x /system/bin/$t
+done
+: > /pf/forks
+SLEEPS=""; for i in $(seq 1 150); do sleep 300 & SLEEPS="$SLEEPS $!"; done      # 실차처럼 프로세스가 많은 상태
+PF_BOOT_WAIT=0 run_svc
+check "부팅 경로에서 cat 0회 (프로세스 목록을 셸 내장 read 로)" '! grep -q "^cat$" /pf/forks'
+check "부팅 경로에서 grep 0회 (마운트 목록은 한 번 읽어 재사용)" '! grep -q "^grep$" /pf/forks'
+check "폰트 크기 확인은 원본 폰트 4종에 한 번씩 (ls 4회)" '[ "$(/usr/bin/grep -c "^ls$" /pf/forks)" = 4 ]'
+check "그래도 11개 마운트" '[ "$(nmounts)" = 11 ]'
+kill $SLEEPS 2>/dev/null; wait $SLEEPS 2>/dev/null; rm -f $STATE/pending; echo 0 > $STATE/fails
+for t in cat grep ls; do rm -f /system/bin/$t; eval "ln -s \$REAL_$t /system/bin/$t"; done
 
 echo "== 4. 부팅 루프 방지 (부팅이 완료되지 않는 상황 2회)"
 reboot_sim 2; run_svc

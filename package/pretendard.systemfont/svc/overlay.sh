@@ -9,8 +9,8 @@
 _here="${0%/*}"
 . "$_here/../lib/common.sh"
 
-mkdir -p "$STATE" 2>/dev/null
-BOOT_ID="$(cat "$BOOT_ID_FILE" 2>/dev/null)"
+[ -d "$STATE" ] || mkdir -p "$STATE" 2>/dev/null
+BOOT_ID=""; read -r BOOT_ID < "$BOOT_ID_FILE" 2>/dev/null
 log "---- overlay start boot_id=$BOOT_ID"
 
 # 이번 부팅에서 무엇을 했는지 남긴다. 상태 화면(bin/info.sh)이 적용 안 된 이유를 설명할 때 쓴다.
@@ -54,25 +54,39 @@ if zygote_preloaded; then
     exit 0
 fi
 
+# 이 구간은 zygote 의 폰트 로딩(실측 약 5.4초) 전에 끝나야 한다.
+# fork 를 줄이려고: map.conf 는 셸이 직접 읽고, 마운트 목록은 한 번만 읽고,
+# 폰트 크기 확인은 원본 폰트(4종)마다 한 번만 하고, 마운트 결과는 종료 코드로 판단한다.
 _ok=0; _skip=0; _absent=0; _corrupt=0; _mfail=0
-for _pair in $(map_lines | while read -r _t _s; do echo "$_t:$_s"; done); do
-    _t="${_pair%%:*}"; _s="${_pair#*:}"
+load_mounts
+_checked=" "      # " 이름=1 " 확인 통과, " 이름=0 " 손상
+while read -r _t _s _rest; do
+    case "$_t" in ''|'#'*) continue ;; esac
+    [ -n "$_s" ] || continue
+    case "$_t$_s" in */*|*..*) continue ;; esac
     _tgt="$SYSFONTS/$_t"; _src="$FONTDIR/$_s"
     if [ ! -f "$_tgt" ] || [ -L "$_tgt" ]; then
         log "건너뜀: $_tgt 없음(또는 링크)"; _skip=$((_skip + 1)); _absent=$((_absent + 1)); continue
     fi
-    if is_mounted "$_tgt"; then
-        log "이미 마운트됨: $_tgt"; _ok=$((_ok + 1)); continue
-    fi
-    if ! font_ok "$_s"; then
-        log "건너뜀: $_s 손상 또는 md5 불일치"; _skip=$((_skip + 1)); _corrupt=$((_corrupt + 1)); continue
-    fi
-    if "$MOUNT_BIN" -o bind "$_src" "$_tgt" 2>> "$LOG" && is_mounted "$_tgt"; then
+    case "$MOUNTS" in *" $_tgt "*)
+        log "이미 마운트됨: $_tgt"; _ok=$((_ok + 1)); continue ;;
+    esac
+    case "$_checked" in
+        *" $_s=1 "*) ;;
+        *" $_s=0 "*) _skip=$((_skip + 1)); _corrupt=$((_corrupt + 1)); continue ;;
+        *)
+            if font_ok "$_s"; then _checked="$_checked$_s=1 "
+            else
+                _checked="$_checked$_s=0 "
+                log "건너뜀: $_s 손상 (크기가 설치 때와 다름)"; _skip=$((_skip + 1)); _corrupt=$((_corrupt + 1)); continue
+            fi ;;
+    esac
+    if "$MOUNT_BIN" -o bind "$_src" "$_tgt" 2>> "$LOG"; then
         _ok=$((_ok + 1))
     else
         log "마운트 실패: $_tgt"; _skip=$((_skip + 1)); _mfail=$((_mfail + 1))
     fi
-done
+done < "$MAP"
 log "마운트 $_ok 개, 건너뜀 $_skip 개"
 
 if [ "$_ok" -gt 0 ]; then last_run mounted; else last_run nothing; exit 0; fi

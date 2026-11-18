@@ -31,11 +31,15 @@ STABLE_SEC="${PF_STABLE_SEC:-60}"
 # sys.boot_completed 를 기다리는 최대 시간(초)
 BOOT_WAIT_SEC="${PF_BOOT_WAIT:-300}"
 
+# 부팅 경로(svc/overlay.sh)에서 쓰는 함수는 프로세스를 새로 띄우지 않게(셸 내장만) 짠다.
+# 부팅 중 CPU 가 바쁜 차에서는 fork 하나가 수십 ms 라, zygote 의 폰트 로딩 전에 끝내려면 이게 크다.
+
 up() { _u=; read _u _r < /proc/uptime 2>/dev/null; echo "${_u:-?}"; }
 
 log() {
-    mkdir -p "${LOG%/*}" 2>/dev/null
-    echo "[$(up)] $*" >> "$LOG" 2>/dev/null
+    [ -d "${LOG%/*}" ] || mkdir -p "${LOG%/*}" 2>/dev/null
+    _u=; read _u _r < /proc/uptime 2>/dev/null
+    echo "[${_u:-?}] $*" >> "$LOG" 2>/dev/null
     echo "$*"
 }
 
@@ -52,19 +56,33 @@ map_lines() {
 
 is_mounted() { grep " $1 " /proc/mounts > /dev/null 2>&1; }
 
-# comm 이 $1 인 첫 pid
-pid_of() {
+# 지금 마운트된 지점들을 " /a /b " 형태로 MOUNTS 에 담는다 (fork 없음)
+load_mounts() {
+    MOUNTS=" "
+    while read -r _dev _mp _rest; do MOUNTS="$MOUNTS$_mp "; done < /proc/mounts
+}
+
+# comm 이 $1 인 첫 pid 를 PID 에 담는다 (fork 없음: cat 대신 read)
+find_pid() {
+    PID=""
     for _d in /proc/[0-9]*; do
-        _s="$(cat $_d/stat 2>/dev/null)"; _c="${_s#*\(}"; _c="${_c%%\)*}"
-        [ "$_c" = "$1" ] && { echo "${_d#/proc/}"; return 0; }
+        _s=""; read -r _s < "$_d/stat" 2>/dev/null || continue
+        _c="${_s#*\(}"; _c="${_c%%\)*}"
+        [ "$_c" = "$1" ] && { PID="${_d#/proc/}"; return 0; }
     done
     return 1
 }
 
-# zygote 가 이미 시스템 폰트를 읽었는가 (= 지금 마운트하면 늦음)
+# comm 이 $1 인 첫 pid (출력)
+pid_of() { find_pid "$1" && echo "$PID"; }
+
+# zygote 가 이미 시스템 폰트를 읽었는가 (= 지금 마운트하면 늦음). fork 없음.
 zygote_preloaded() {
-    _z="$(pid_of zygote)" || return 1
-    grep "$SYSFONTS/" "/proc/$_z/maps" > /dev/null 2>&1
+    find_pid zygote || return 1
+    while read -r _l; do
+        case "$_l" in *" $SYSFONTS/"*) return 0 ;; esac
+    done < "/proc/$PID/maps" 2>/dev/null
+    return 1
 }
 
 md5_of() {
