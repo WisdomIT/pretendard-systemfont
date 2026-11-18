@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- versionCode/versionName 은 tools/build_apk.sh 가 패키지 버전으로 채운다 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="dev.wisdomit.pretendard">
+
+    <uses-sdk android:minSdkVersion="19" android:targetSdkVersion="19" />
+
+    <application
+        android:label="Pretendard System Font"
+        android:allowBackup="false">
+        <!-- NEMESIS Manager 의 Launch 가 component 로 연다. 차량 앱 목록에는 넣지 않는다. -->
+        <activity
+            android:name=".StatusActivity"
+            android:exported="true"
+            android:screenOrientation="landscape"
+            android:theme="@android:style/Theme.Holo.NoActionBar.Fullscreen" />
+    </application>
+</manifest>

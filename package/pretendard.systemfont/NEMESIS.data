@@ -13,9 +13,10 @@ postinstall=scripts/post.sh
 preuninstall=scripts/preun.sh
 
 [app.0]
-kind=sh
-path=bin/status.sh
-uid=root
+kind=apk
+path=app/PretendardStatus.apk
+package=dev.wisdomit.pretendard
+component=dev.wisdomit.pretendard/.StatusActivity
 
 [service.0]
 name=overlay

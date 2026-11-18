@@ -13,7 +13,8 @@
 | 실차 설치·적용 | 확인 |
 | 실차 패키지 삭제(Uninstall) 후 순정 복귀 | 확인 |
 | NEMESIS 삭제(wipe), 비정상 삭제 후 순정 복귀 | 실차 미확인 (컨테이너 테스트로만 검증) |
-| 컨테이너 수명주기 테스트 | 37/37 통과 (`tests/run.sh`) |
+| 컨테이너 수명주기 테스트 | 51/51 통과 (`tests/run.sh`) |
+| 상태 화면 앱 (0.1 신규) | 빌드·API 19 호환성 검사 통과, **실차 미확인** |
 | 다른 차종·펌웨어 | 미확인 |
 
 ### 적용 범위 (실차 확인)
@@ -58,7 +59,30 @@
 4. **NEMESIS Manager → Settings → Reboot**으로 재부팅합니다.
    - 설치 직후에는 바로 바뀌지 않습니다. 실행 중인 화면과 섞이지 않도록 다음 부팅부터 적용합니다.
    - 시동을 잠깐(3분 정도) 껐다 켜면 Android가 재부팅되지 않고 화면만 꺼졌다 켜집니다(실측). 그래서 적용되지 않습니다. 15분 정도 꺼 두면 재부팅됩니다.
-5. **My Packages → Pretendard System Font → Launch**를 누르면 상태가 토스트로 뜹니다. "적용됨 (11/11)"이면 성공입니다.
+5. **My Packages → Pretendard System Font → Launch**를 누르면 상태 화면이 열립니다. "적용됨 11/11"이면 성공입니다.
+
+## 상태 화면
+
+NEMESIS Manager에서 Launch하면 열리는 화면입니다.
+
+- **왼쪽**:
+  - 적용 상태 배지
+  - 적용이 안 됐을 때 **원인과 해결 방법**
+  - 펌웨어, NEMESIS, 패키지, Pretendard 버전과 부팅 안전장치 상태
+  - 폰트 묶음(Roboto, Mobis, NanumGothic)별 적용 여부
+  - **진단 실행** 버튼: 꽂혀 있는 USB에 진단 결과(`pfdiag-…` 폴더)를 저장하고, 요약을 화면에 보여 줍니다.
+- **오른쪽**: 휴대폰으로 스캔하면 GitHub 이슈 작성 화면이 열리는 QR입니다. 이 차의 펌웨어, 버전, 적용 상태가 미리 채워집니다.
+
+화면이 보여 주는 적용 안 된 이유:
+
+| 원인 | 뜻 |
+|---|---|
+| 재부팅하면 적용됩니다 | 설치 후 아직 재부팅하지 않음 |
+| Android보다 늦게 시작해 적용하지 못했습니다 | 이번 부팅에서 NEMESIS가 폰트 로딩보다 늦게 뜸. 계속되면 지원되지 않는 차일 수 있음 |
+| 부팅 서비스가 실행되지 않았습니다 | 이번 부팅에 패키지 서비스 기록이 없음 |
+| 안전을 위해 스스로 꺼졌습니다 | 적용한 부팅이 연속 2번 정상 완료되지 않음. 재설치하면 다시 켜짐 |
+| 바꿀 시스템 폰트를 찾지 못했습니다 | 이 펌웨어에 대상 폰트 파일이 없음 |
+| 폰트 파일이 손상되었습니다 / 일부 폰트를 덮어쓰지 못했습니다 | 재설치하거나 진단 결과를 이슈로 보내 주세요 |
 
 ## 되돌리기
 
@@ -72,7 +96,9 @@
 
 ## 빌드
 
-macOS 또는 Linux에서 `curl`, `unzip`, `python3`가 필요합니다.
+macOS 또는 Linux에서 `curl`, `unzip`, `python3`, JDK(17 이상)가 필요합니다. Android SDK는 필요 없습니다. 상태 화면 앱은 `tools/build_apk.sh`가 공개 Maven 저장소에서 버전과 sha256을 고정한 빌드 도구를 받아 만듭니다(aapt2, r8, Android 4.4 라이브러리). `build.py`가 필요할 때 자동으로 부릅니다.
+
+앱 서명 키는 처음 빌드할 때 `~/.pretendard-systemfont/app-release.p12`에 만들어집니다. 업데이트는 같은 키로 서명해야 설치되므로 **꼭 백업해 두세요.**
 
 ```bash
 tools/fetch_fonts.sh
@@ -135,10 +161,15 @@ package/pretendard.systemfont/   NEMESIS 패키지
   files/map.conf                 어떤 시스템 폰트를 어떤 굵기로 덮을지
   svc/overlay.sh                 부팅 서비스: 마운트 + 부팅 루프 방지
   scripts/pre.sh post.sh preun.sh  설치 전 검사, 설치 후 안내, 삭제 시 해제
-  bin/status.sh                  Manager에서 Launch하면 적용 상태 표시
+  app/PretendardStatus.apk       상태 화면 앱 (빌드 산출물, Launch 대상)
+  bin/info.sh, bin/diag.sh       상태 화면이 NEMESIS root 채널로 부르는 상태 조회·진단 실행
+  diag/pfdiag.sh                 진단 스크립트 (diag/usb/pfdiag.sh 를 빌드 때 동봉)
   lib/common.sh                  공용 함수
 tools/fetch_fonts.sh             Pretendard 1.3.9 내려받기 (sha256 검증)
+tools/build_apk.sh               상태 화면 앱 빌드 (Android SDK 없이)
 tools/build.py                   패키지 zip과 설치용 USB 구성 생성 → dist/
+app/                             상태 화면 앱 소스 (Java, API 19, QR: Nayuki qrcodegen MIT)
+.github/ISSUE_TEMPLATE/          버그 신고, 기능 제안, 차량 호환성 보고
 tests/run.sh                     컨테이너 수명주기 테스트
 diag/                            실차 진단 USB (pfdiag: 폰트·부팅 조사, pfqb: 시동 OFF/ON 동작)
 docs/                            실차 진단 결과
@@ -147,3 +178,5 @@ docs/                            실차 진단 결과
 ## 라이선스
 
 Pretendard는 SIL Open Font License 1.1이고, "Pretendard"는 예약 이름(RFN)입니다. 이 패키지는 폰트를 수정하지 않고 원본 그대로 넣으며, `fonts/LICENSE.txt`를 함께 배포합니다.
+
+상태 화면 앱의 QR 코드는 [Nayuki QR Code generator](https://github.com/nayuki/QR-Code-generator)(MIT)로 그립니다. 원본 그대로 `app/third_party/`에 들어 있습니다.

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 설치·되돌리기 방법
+    url: https://github.com/WisdomIT/pretendard-systemfont#설치
+    about: 이슈를 쓰기 전에 README의 설치와 되돌리기 절을 확인해 주세요.

@@ -7,6 +7,9 @@ _here="${0%/*}"
 
 rm -f "$STATE/disabled" "$STATE/pending" "$STATE/fails" 2>/dev/null
 mkdir -p "$STATE" 2>/dev/null
+rm -f "$STATE/last_run" 2>/dev/null
+# 설치한 부팅을 기록한다. 이번 부팅에 적용되지 않은 것은 "재부팅 필요"이지 문제가 아니다.
+cat "$BOOT_ID_FILE" > "$STATE/installed_boot" 2>/dev/null
 log "설치됨: $(grep '^package-version=' "$PKG/NEMESIS.data" 2>/dev/null)"
 
 echo "Pretendard 설치 완료."

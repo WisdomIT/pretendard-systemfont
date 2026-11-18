@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """pretendard.systemfont NEMESIS 패키지를 빌드한다.
 
+  0. 상태 화면 앱 빌드 (tools/build_apk.sh) 와 진단 스크립트 동봉 (diag/usb/pfdiag.sh -> diag/pfdiag.sh)
   1. map.conf 가 가리키는 폰트가 모두 있는지 확인
   2. fonts/md5.txt 생성 (기기에서 손상 검사에 사용)
   3. dist/pretendard.systemfont-<ver>.zip 생성
@@ -10,6 +11,7 @@
 """
 import hashlib
 import shutil
+import subprocess
 import sys
 import zipfile
 from pathlib import Path
@@ -39,7 +41,17 @@ def map_sources() -> set[str]:
     return out
 
 
+def newest_mtime(paths) -> float:
+    return max((p.stat().st_mtime for d in paths for p in d.rglob("*") if p.is_file()), default=0)
+
+
 def main() -> int:
+    # 상태 화면 앱: 소스나 패키지 버전이 바뀌었으면 다시 빌드
+    apk = PKG / "app" / "PretendardStatus.apk"
+    src_time = max(newest_mtime([ROOT / "app"]), (PKG / "NEMESIS.data").stat().st_mtime)
+    if not apk.exists() or apk.stat().st_mtime < src_time:
+        subprocess.run(["sh", str(ROOT / "tools" / "build_apk.sh")], check=True)
+
     fonts = PKG / "fonts"
     missing = [s for s in sorted(map_sources()) if not (fonts / s).is_file()]
     if missing or not (fonts / "LICENSE.txt").is_file():
@@ -72,6 +84,9 @@ def main() -> int:
         if rel.startswith("fonts/") and p.suffix == ".ttf" and p.name not in used:
             continue
         members.append((p, rel))
+    # 진단 스크립트는 diag/usb/pfdiag.sh 하나를 원본으로 두고 패키지에 함께 넣는다
+    members.append((ROOT / "diag" / "usb" / "pfdiag.sh", "diag/pfdiag.sh"))
+    members.sort(key=lambda m: m[1])
     with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
         for p, rel in members:
             data = p.read_bytes()

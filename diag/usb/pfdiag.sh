@@ -18,7 +18,7 @@ export PATH=/sbin:/vendor/bin:/system/sbin:/system/bin:/system/xbin
 export LD_LIBRARY_PATH=/vendor/lib:/system/lib
 
 # ---- 옵션 ------------------------------------------------------------------
-MOUNT_TEST=1          # 1: bind mount 시험 수행 (원본과 동일한 사본으로, 즉시 해제)
+MOUNT_TEST="${PF_MOUNT_TEST:-1}"  # 1: bind mount 시험 수행 (원본과 동일한 사본으로, 즉시 해제)
 COPY_FONTS=1          # 1: /system/fonts 전체를 USB 로 복사 (원본 폰트 기록·분석용)
 COPY_FONT_APKS=1      # 1: 폰트를 품은 것으로 보이는 APK 를 복사 (MAX_APK_KB 이하만)
 MAX_APK_KB=65536
@@ -27,8 +27,11 @@ SELF_TIMEOUT=900      # 이 시간(초)이 지나면 스크립트가 스스로 �
 # ---------------------------------------------------------------------------
 
 USB_ROOT="$(pwd)"
+# 패키지의 진단 버튼(bin/diag.sh)이 진행 상황을 알 수 있게 출력 폴더를 기록한다
+RESULT_FILE="${PF_DIAG_RESULT:-}"
 OUT="$USB_ROOT/pfdiag-$(date +%Y%m%d-%H%M%S 2>/dev/null)-$$"
 mkdir "$OUT" 2>/dev/null || exit 1
+[ -n "$RESULT_FILE" ] && echo "running $OUT" > "$RESULT_FILE"
 for d in meta storage fonts fonts/config fonts/files scan apks runtime boot nemesis mounttest; do
     mkdir "$OUT/$d" 2>/dev/null || exit 1
 done
@@ -369,6 +372,8 @@ cp /data/nemesis/services.db "$OUT/nemesis/" 2>/dev/null
 cp /data/nemesis/nemesis.log "$OUT/nemesis/" 2>/dev/null
 run nemesis/ls_data_nemesis.txt ls -lR /data/nemesis
 run nemesis/ls_data_nemesis_bin.txt ls -l /data/nemesis/bin
+cp /data/nemesis/logs/pretendard.systemfont/overlay.log "$OUT/nemesis/pretendard_overlay.log" 2>/dev/null
+run nemesis/pretendard_state.txt ls -l /data/nemesis/state/pretendard.systemfont
 
 sum "[NEMESIS]"
 sum "  version: $(/system/xbin/nemesis version 2>/dev/null)"
@@ -462,6 +467,7 @@ sum ""
 
 sum "--------------------------------------------------------------"
 sum "끝. uptime=$(up)s  출력 폴더: ${OUT##*/}"
+[ -n "$RESULT_FILE" ] && echo "done $OUT" > "$RESULT_FILE"
 log "end"
 sync
 exit 0

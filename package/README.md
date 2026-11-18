@@ -39,7 +39,7 @@ python3 tools/build.py
 3. **NEMESIS Manager → Settings → Reboot**으로 재부팅하면 적용됩니다.
    - 설치 직후에는 바로 바뀌지 않습니다. 이미 실행 중인 화면과 섞이지 않게 하려는 것입니다.
    - 시동을 잠깐 껐다 켜는 것으로는 재부팅되지 않습니다(실측). 15분 정도 꺼 두거나 Manager의 Reboot을 쓰세요.
-4. Manager → My Packages → Pretendard System Font → **Launch**로 적용 상태를 볼 수 있습니다.
+4. Manager → My Packages → Pretendard System Font → **Launch**로 상태 화면을 엽니다. 적용 상태와 안 된 이유, 진단 실행, 이슈 QR이 있습니다([루트 README](../README.md#상태-화면)).
 
 ## 되돌리기
 
@@ -66,7 +66,7 @@ python3 tools/build.py
 tests/run.sh
 ```
 
-Docker의 Linux 컨테이너에서 실차 셸(mksh)과 KitKat toolbox 제약을 흉내 내어 수명주기 전체를 검사합니다(37개 항목).
+Docker의 Linux 컨테이너에서 실차 셸(mksh)과 KitKat toolbox 제약을 흉내 내어 수명주기 전체를 검사합니다(51개 항목).
 
 - 설치
 - 부팅 적용
@@ -76,6 +76,8 @@ Docker의 Linux 컨테이너에서 실차 셸(mksh)과 KitKat toolbox 제약을 
 - 손상 폰트
 - 삭제
 - NEMESIS 소실
+- 상태 화면의 적용 안 된 이유 판정
+- 진단 버튼 동작
 
 ## 라이선스
 

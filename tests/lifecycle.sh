@@ -57,6 +57,9 @@ reboot_sim() {
     echo 0 > /pf/boot_completed
 }
 run_svc() { mksh "$APP/svc/overlay.sh" > /dev/null 2>&1; }
+info() { mksh "$APP/bin/info.sh" 2>/dev/null; }
+reason() { info | grep '^reason=' | cut -d= -f2; }
+istate() { info | grep '^state=' | cut -d= -f2; }
 font_md5() { md5sum "/system/fonts/$1" | cut -d' ' -f1; }
 pkg_md5()  { md5sum "$APP/fonts/$1" | cut -d' ' -f1; }
 stock_md5() { grep " $1\$" /pf/stock.md5 | cut -d' ' -f1; }
@@ -84,7 +87,7 @@ install_pkg "$ZIP"
 check "preinstall 통과" '[ "$PRE_RC" = 0 ]'
 check "설치 직후에는 마운트하지 않음" '[ "$(nmounts)" = 0 ]'
 check "로그에 다음 재부팅 안내" 'grep -q "다음 재부팅에 적용" "$LOG"'
-check "status: 적용 전" 'mksh $APP/bin/status.sh | grep -q "적용 전"'
+check "info: 적용 전, 이유=재부팅 필요" '[ "$(istate)" = pending ] && [ "$(reason)" = reboot_needed ]'
 
 echo "== 2. 재부팅 (서비스가 zygote preload 전에 실행)"
 reboot_sim 1
@@ -101,7 +104,9 @@ check "pending 기록" '[ -f $STATE/pending ]'
 zygote_start preloaded; echo 1 > /pf/boot_completed
 wait "$SVC"
 check "정상 부팅 확인 후 pending 삭제" '[ ! -f $STATE/pending ] && [ "$(cat $STATE/fails)" = 0 ]'
-check "status: 적용됨 (11/11)" 'mksh $APP/bin/status.sh | grep -q "적용됨 (11/11)"'
+check "info: applied 11/11, 이유=ok" '[ "$(istate)" = applied ] && [ "$(reason)" = ok ] && info | grep -q "^mounted=11$"'
+check "info: 묶음별 상태" 'info | grep -q "^group.Roboto=applied 8/8$" && info | grep -q "^group.Mobis=applied 2/2$" && info | grep -q "^group.NanumGothic=applied 1/1$"'
+check "info: 버전 정보" 'info | grep -q "^package=0.1$" && info | grep -q "^pretendard=1.3.9$"'
 
 echo "== 3. 같은 부팅에서 서비스 재실행 (svcmgr 재시작)"
 echo boot-1 > $STATE/pending
@@ -117,7 +122,7 @@ reboot_sim 3; run_svc
 check "boot3: fails=1, 다시 시도" '[ "$(cat $STATE/fails)" = 1 ] && [ "$(nmounts)" = 11 ]'
 reboot_sim 4; run_svc
 check "boot4: fails=2 -> 스스로 꺼짐, 순정" '[ -f $STATE/disabled ] && [ "$(nmounts)" = 0 ]'
-check "status: 꺼짐" 'mksh $APP/bin/status.sh | grep -q "꺼짐"'
+check "info: 꺼짐, 이유=disabled" '[ "$(istate)" = disabled ] && [ "$(reason)" = disabled ]'
 reboot_sim 5; run_svc
 check "boot5: 꺼짐 유지" '[ "$(nmounts)" = 0 ]'
 
@@ -138,7 +143,31 @@ echo "== 6. 손상된 패키지 폰트"
 cp -a "$APP/fonts/Pretendard-Bold.ttf" /pf/bold.bak
 reboot_sim 8; echo garbage >> "$APP/fonts/Pretendard-Bold.ttf"; run_svc
 check "손상된 Bold 를 쓰는 3개는 건너뜀" '[ "$(nmounts)" = 8 ] && [ "$(font_md5 Roboto-Bold.ttf)" = "$(stock_md5 Roboto-Bold.ttf)" ]'
+check "info: 일부 적용, 이유=corrupt" '[ "$(istate)" = partial ] && [ "$(reason)" = corrupt ]'
 cp -a /pf/bold.bak "$APP/fonts/Pretendard-Bold.ttf"; rm -f $STATE/pending
+
+echo "== 6b. 적용 안 된 이유"
+reboot_sim 20
+check "부팅 서비스가 이번 부팅에 안 돌았으면 service_not_run" '[ "$(reason)" = service_not_run ]'
+zygote_start preloaded; run_svc
+check "NEMESIS 가 zygote 보다 늦으면 late_start" '[ "$(nmounts)" = 0 ] && [ "$(reason)" = late_start ]'
+reboot_sim 21; mv /system/fonts /system/fonts.bak; mkdir /system/fonts; run_svc
+check "바꿀 폰트가 하나도 없으면 no_targets" '[ "$(reason)" = no_targets ] && info | grep -q "^group.Mobis=absent$"'
+rmdir /system/fonts; mv /system/fonts.bak /system/fonts; rm -f $STATE/pending
+
+echo "== 6c. 진단 버튼 (bin/diag.sh)"
+mkdir -p /usbtest
+check "USB 없으면 error no_usb" '[ "$(mksh $APP/bin/diag.sh start)" = "error no_usb" ]'
+export PF_USB_CANDIDATES=/usbtest
+check "start -> started" 'mksh $APP/bin/diag.sh start | grep -q "^started /usbtest"'
+check "실행 중 다시 start -> running" '[ "$(mksh $APP/bin/diag.sh start)" = running ]'
+check "status -> running <초>" 'mksh $APP/bin/diag.sh status | grep -q "^running [0-9]"'
+for i in $(seq 1 240); do mksh $APP/bin/diag.sh status | grep -q "^done" && break; sleep 1; done
+check "진단 완료 -> done <USB 폴더>" 'mksh $APP/bin/diag.sh status | grep -q "^done /usbtest/pfdiag-"'
+check "summary 는 SUMMARY.txt 앞부분" 'mksh $APP/bin/diag.sh summary | grep -q "pretendard-systemfont 진단 결과"'
+check "진단은 마운트 시험을 건너뜀 (이미 적용 중)" 'grep -q "skipped (MOUNT_TEST=0)" /usbtest/pfdiag-*/mounttest/result.txt'
+check "진단 후에도 마운트 그대로" '[ "$(nmounts)" = 11 ] || [ "$(nmounts)" = 0 ]'
+unset PF_USB_CANDIDATES
 
 echo "== 7. 패키지 삭제 (wipe 도 같은 preuninstall 을 실행, zygote 가 폰트를 열고 있음)"
 cp "$APP/fonts/Pretendard-Regular.ttf" /pf/pret-regular
