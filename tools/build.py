@@ -3,7 +3,7 @@
 
   0. 상태 화면 앱 빌드 (tools/build_apk.sh) 와 진단 스크립트 동봉 (diag/usb/pfdiag.sh -> diag/pfdiag.sh)
   1. map.conf 가 가리키는 폰트가 모두 있는지 확인
-  2. fonts/md5.txt 생성 (기기에서 손상 검사에 사용)
+  2. fonts/md5.txt 생성 "<md5>  <이름>  <크기>" (설치 때 md5, 부팅 때 크기로 손상 검사)
   3. dist/pretendard.systemfont-<ver>.zip 생성
   4. dist/usb/ 에 USB 루트 구성 (NEMESIS.data type=install + packages/<zip>)
 
@@ -63,7 +63,8 @@ def main() -> int:
     sums = []
     for f in sorted(fonts.glob("*.ttf")):
         if f.name in used:
-            sums.append(f"{hashlib.md5(f.read_bytes()).hexdigest()}  {f.name}")
+            data = f.read_bytes()
+            sums.append(f"{hashlib.md5(data).hexdigest()}  {f.name}  {len(data)}")
     (fonts / "md5.txt").write_text("\n".join(sums) + "\n", encoding="utf-8")
 
     version = read_ini_value(PKG / "NEMESIS.data", "package-version")

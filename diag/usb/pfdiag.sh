@@ -412,6 +412,7 @@ cp /data/nemesis/services.db "$OUT/nemesis/" 2>/dev/null
 cp /data/nemesis/nemesis.log "$OUT/nemesis/" 2>/dev/null
 run nemesis/ls_data_nemesis.txt ls -lR /data/nemesis
 run nemesis/ls_data_nemesis_bin.txt ls -l /data/nemesis/bin
+cp /data/nemesis/logs/pretendard.systemfont/package.log "$OUT/nemesis/pretendard_package.log" 2>/dev/null
 cp /data/nemesis/logs/pretendard.systemfont/overlay.log "$OUT/nemesis/pretendard_overlay.log" 2>/dev/null
 run nemesis/pretendard_state.txt ls -l /data/nemesis/state/pretendard.systemfont
 

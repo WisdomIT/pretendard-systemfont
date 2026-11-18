@@ -58,7 +58,7 @@ python3 tools/build.py
 - **폰트를 검증합니다.** 패키지 안 폰트의 md5가 빌드 때와 다르면 그 폰트를 쓰는 항목은 건너뜁니다.
 - **업데이트와 삭제 때 앱이 깨지지 않습니다.** NEMESIS는 기존 폴더를 지운 뒤 새로 복사하고, 파일을 제자리에서 덮어쓰지 않습니다. 사용 중인 폰트는 삭제된 뒤에도 재부팅 전까지 그대로 읽힙니다.
 
-로그는 `/data/nemesis/logs/pretendard.systemfont/overlay.log`, 상태는 `/data/nemesis/state/pretendard.systemfont/`에 있습니다.
+로그는 `/data/nemesis/logs/pretendard.systemfont/package.log`, 상태는 `/data/nemesis/state/pretendard.systemfont/`에 있습니다.
 
 ## 테스트
 

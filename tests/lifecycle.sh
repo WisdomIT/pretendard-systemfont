@@ -12,7 +12,7 @@ check() { if eval "$2"; then ok "$1"; else bad "$1"; fi; }
 ID=pretendard.systemfont
 APP=/data/nemesis/apps/$ID
 STATE=/data/nemesis/state/$ID
-LOG=/data/nemesis/logs/$ID/overlay.log
+LOG=/data/nemesis/logs/$ID/package.log
 ZIP=$(ls /dist/$ID-*.zip)
 
 # ---- 가짜 Gen5W 환경 -------------------------------------------------------
@@ -91,9 +91,12 @@ check "info: 적용 전, 이유=재부팅 필요" '[ "$(istate)" = pending ] && 
 
 echo "== 2. 재부팅 (서비스가 zygote preload 전에 실행)"
 reboot_sim 1
+# 부팅 경로는 md5 를 계산하지 않아야 한다 (실차에서 11번 계산에 1.8초가 걸려 preload 와 0.6초 차이였음)
+rm -f /system/bin/md5sum; printf '#!/bin/sh\necho x >> /pf/md5calls\nexec /usr/bin/md5sum "$@"\n' > /system/bin/md5sum; chmod +x /system/bin/md5sum; : > /pf/md5calls
 run_svc &
 SVC=$!; sleep 1
 check "11개 마운트" '[ "$(nmounts)" = 11 ]'
+check "부팅 경로에서 md5 계산 0회 (크기만 확인)" '[ ! -s /pf/md5calls ]'
 check "Roboto-Regular = Pretendard-Regular" '[ "$(font_md5 Roboto-Regular.ttf)" = "$(pkg_md5 Pretendard-Regular.ttf)" ]'
 check "DroidSans 링크도 Pretendard" '[ "$(font_md5 DroidSans.ttf)" = "$(pkg_md5 Pretendard-Regular.ttf)" ]'
 check "Mobis-Bold = Pretendard-Bold" '[ "$(font_md5 Mobis-Bold.ttf)" = "$(pkg_md5 Pretendard-Bold.ttf)" ]'
@@ -106,7 +109,7 @@ wait "$SVC"
 check "정상 부팅 확인 후 pending 삭제" '[ ! -f $STATE/pending ] && [ "$(cat $STATE/fails)" = 0 ]'
 check "info: applied 11/11, 이유=ok" '[ "$(istate)" = applied ] && [ "$(reason)" = ok ] && info | grep -q "^mounted=11$"'
 check "info: 묶음별 상태" 'info | grep -q "^group.Roboto=applied 8/8$" && info | grep -q "^group.Mobis=applied 2/2$" && info | grep -q "^group.NanumGothic=applied 1/1$"'
-check "info: 버전 정보" 'info | grep -q "^package=0.4$" && info | grep -q "^pretendard=1.3.9$"'
+check "info: 버전 정보" 'info | grep -q "^package=0.5$" && info | grep -q "^pretendard=1.3.9$"'
 
 echo "== 3. 같은 부팅에서 서비스 재실행 (svcmgr 재시작)"
 echo boot-1 > $STATE/pending

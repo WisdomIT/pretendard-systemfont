@@ -22,7 +22,7 @@ _targets=0; _bad=0
 for _pair in $(map_lines | while read -r _t _s; do echo "$_t:$_s"; done); do
     _t="${_pair%%:*}"; _s="${_pair#*:}"
     [ -f "$SYSFONTS/$_t" ] && _targets=$((_targets + 1))
-    if ! font_ok "$_s"; then
+    if ! font_ok "$_s" full; then
         echo "실패: 패키지 안의 $_s 가 손상됐습니다"; _bad=$((_bad + 1))
     fi
 done

@@ -15,7 +15,7 @@ PKG_ID=pretendard.systemfont
 PKG="${PF_PKG:-/data/nemesis/apps/$PKG_ID}"
 SYSFONTS="${PF_SYSFONTS:-/system/fonts}"
 STATE="${PF_STATE:-/data/nemesis/state/$PKG_ID}"
-LOG="${PF_LOG:-/data/nemesis/logs/$PKG_ID/overlay.log}"
+LOG="${PF_LOG:-/data/nemesis/logs/$PKG_ID/package.log}"   # overlay.log 는 NEMESIS 가 서비스 출력을 쓰는 곳
 MOUNT_BIN="${PF_MOUNT:-/system/bin/mount}"
 UMOUNT_BIN="${PF_UMOUNT:-/system/bin/umount}"
 BOOT_ID_FILE="${PF_BOOT_ID_FILE:-/proc/sys/kernel/random/boot_id}"
@@ -73,15 +73,30 @@ md5_of() {
     echo "$1"
 }
 
-# 패키지 안 폰트가 빌드 때 기록한 md5 와 같은가
+# 패키지 안 폰트가 빌드 때 기록한 것과 같은가. fonts/md5.txt 한 줄: "<md5>  <이름>  <바이트>"
+#   font_ok <이름>        크기만 비교 (부팅 경로: zygote 가 폰트를 읽기 전에 끝나야 해서 빠르게)
+#   font_ok <이름> full   md5 까지 비교 (설치할 때 pre.sh 가 한 번)
+# 패키지 폴더는 설치 때만 바뀌므로, 설치 때 md5 를 확인했다면 부팅 때는 크기 확인으로 충분하다.
 font_ok() {
     _f="$FONTDIR/$1"
     [ -s "$_f" ] || return 1
     [ -f "$SUMS" ] || return 1
-    _want=""
-    while read -r _h _n; do [ "$_n" = "$1" ] && { _want="$_h"; break; }; done < "$SUMS"
+    _want=""; _wsize=""
+    while read -r _h _n _sz; do [ "$_n" = "$1" ] && { _want="$_h"; _wsize="$_sz"; break; }; done < "$SUMS"
     [ -n "$_want" ] || return 1
-    [ "$(md5_of "$_f")" = "$_want" ]
+    if [ "$2" = full ]; then
+        [ "$(md5_of "$_f")" = "$_want" ]
+    else
+        [ -n "$_wsize" ] && [ "$(size_of "$_f")" = "$_wsize" ]
+    fi
+}
+
+# 파일 크기(바이트). toolbox ls -l: 권한 소유자 그룹 크기 날짜 시각 이름
+size_of() {
+    set -- $(ls -l "$1" 2>/dev/null)
+    case "$1" in -*) ;; *) echo ""; return ;; esac
+    # GNU ls 는 링크 수 열이 하나 더 있다 (테스트 환경)
+    case "$2" in *[!0-9]*) echo "$4" ;; *) echo "$5" ;; esac
 }
 
 # 이 패키지가 건 마운트를 모두 푼다. 남은 개수를 돌려준다(0 이면 전부 해제).
