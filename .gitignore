@@ -1,0 +1,12 @@
+# 실차 진단 결과 (OEM 폰트/APK 포함) - 커밋 금지
+pfdiag-*/
+# 펌웨어/OEM 소스
+Sources/firmware/
+AVNT+STD+G50+WIDE+R*.zip
+.DS_Store
+pfqb-*/
+pfqb-log.txt
+# 빌드 시 내려받는 Pretendard 폰트와 빌드 결과물
+package/pretendard.systemfont/fonts/
+build/
+dist/

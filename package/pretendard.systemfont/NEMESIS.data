@@ -1,0 +1,25 @@
+[nemesis]
+version=1.1
+id=pretendard.systemfont
+name=Pretendard System Font
+type=application,service
+package-version=0.1
+short-desc="System font to Pretendard. Uninstall restores stock."
+detailed-desc="Overlays Pretendard on Roboto, Mobis (devicedefault) and NanumGothic with bind mounts at boot. /system is never written. Applies after a full reboot (Manager > Settings > Reboot). Uninstall or NEMESIS wipe returns the stock fonts."
+os=any
+models=any
+preinstall=scripts/pre.sh
+postinstall=scripts/post.sh
+preuninstall=scripts/preun.sh
+
+[app.0]
+kind=sh
+path=bin/status.sh
+uid=root
+
+[service.0]
+name=overlay
+kind=sh
+path=svc/overlay.sh
+uid=root
+mode=background
