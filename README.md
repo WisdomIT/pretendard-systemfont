@@ -1,34 +1,95 @@
 # pretendard-systemfont
 
-현대·기아 Gen5W(S5W_M, Android 4.4) 인포테인먼트의 시스템 폰트를 Pretendard로 바꾸는 NEMESIS 패키지입니다.
+현대·기아 Gen5W(S5W_M, Android 4.4) 인포테인먼트의 시스템 폰트를 [Pretendard](https://github.com/orioncactus/pretendard)로 바꾸는 NEMESIS 패키지입니다.
+`/system`을 건드리지 않으므로, 패키지나 NEMESIS를 지우면 순정 폰트로 돌아옵니다.
 
-## 핵심 원칙: 언제든 순정으로
+## 현재 상태 (2026-11-18)
 
-- **패키지를 삭제하면** (`nemesis uninstall pretendard.systemfont`) 원래 시스템 폰트로 돌아옵니다.
-- **NEMESIS를 삭제하면** (`nemesis wipe --confirm`) 역시 원래 폰트로 돌아옵니다.
-- 원복은 사람이 따로 손댈 필요 없이 자동으로 이뤄져야 합니다.
+**버전 0.1, 실차 1대에서 동작 확인**
 
-## 원복 방식 후보
+| 항목 | 상태 |
+|---|---|
+| 확인한 차량 | `DEPEHEV.KOR.S5W_M.V039.001.260902`, NEMESIS 1.16.7 |
+| 실차 설치·적용 | 됨 |
+| 컨테이너 수명주기 테스트 | 37/37 통과 (`tests/run.sh`) |
+| 실차 삭제·wipe 원복 | 실차에서는 아직 안 해 봄 (컨테이너에서만 검증) |
+| 다른 차종·펌웨어 | 미확인 |
 
-`nemesis wipe`는 설치된 패키지마다 `preuninstall`을 실행합니다. 하나라도 실패하면 wipe를 멈추고, 끝나면 재부팅합니다(`Sources/native/pkg.c` `cmd_wipe`).
-그래서 두 경로 모두 `preuninstall`에 원복을 걸 수 있습니다. 다만 NEMESIS CLI가 없을 때 쓰는 USB 비상 삭제 스크립트나 `/data` 초기화는 `preuninstall`을 거치지 않습니다.
+**바뀌는 화면**: 시스템 폰트를 쓰는 대부분의 화면입니다. 실차에서 내비게이션, 설정, NEMESIS Manager 등이 바뀐 것을 확인했습니다.
+- Android 기본 글꼴(Roboto)
+- OEM 기본 글꼴(Mobis = Kia CubeR, `devicedefault`)
+- 한글 대체 폰트(NanumGothic)
 
-| | A안: `/system` 무변경 (bind mount) | B안: 파일 교체 + 백업 복원 |
-|---|---|---|
-| 방식 | Pretendard는 `/data/nemesis/apps/<id>/`에 두고, 부팅 때마다 원래 폰트 파일 위에 bind mount | `/system/fonts` 원본을 `/data/nemesis/backup/<id>/`에 백업한 뒤 덮어쓰기, 삭제 때 복원 |
-| 패키지·NEMESIS 삭제 | 다음 부팅부터 마운트가 없어 **저절로 순정** | `preuninstall`이 복원 |
-| 비상 삭제, `/data` 초기화, 펌웨어 업데이트 | 저절로 순정 | 백업이 사라져 **순정 복원 불가** 위험 |
-| 부팅 불가 위험 | 낮음 (`/system`은 그대로) | 폰트나 XML이 잘못되면 zygote 반복 재시작 위험 |
-| 전제 조건 | zygote가 폰트를 읽기 **전에** 마운트를 걸 수 있어야 함 | `/system` 남은 용량 |
+**바뀌지 않는 화면**: 앱이 APK 안에 자체 폰트를 넣어 쓰는 화면입니다.
+- **기본 런처(홈 화면)**
+- 홈 화면 편집, 공조, 블루투스 설정, 음성인식
+- 내비 지도 엔진의 지도 글자(전용 폰트 폴더 사용)
 
-A안이 원칙에 더 맞습니다. 실차 진단 결과 A안이 성립하는 것으로 확인했습니다([docs/diag-findings-DEPEHEV-260902.md](docs/diag-findings-DEPEHEV-260902.md)). NEMESIS 서비스가 zygote의 폰트 로딩보다 약 2.2초 먼저 실행되고, bind mount는 모든 프로세스 네임스페이스에 전파됩니다.
+HMG-API 모드로 앱의 폰트 호출을 가로채는 방법을 조사했지만 **보류 중**입니다. HMG-API에 hook point를 새로 추가해야 해서 원저장소 PR이나 직접 빌드가 필요합니다.
 
-A안으로 구현했습니다. 설치, 빌드, 되돌리기 방법은 [package/README.md](package/README.md)에 있습니다.
+## 설치
+
+필요한 것: NEMESIS가 설치된 Gen5W 차량, exFAT/FAT32 USB.
+
+1. 패키지를 빌드합니다(아래 "빌드"). 이미 빌드했다면 건너뜁니다.
+2. `dist/usb/` **안의 내용**을 USB 루트에 복사합니다.
+   ```
+   NEMESIS.data                              (type=install)
+   packages/pretendard.systemfont-0.1.zip
+   ```
+3. Android가 켜진 상태에서 USB를 꽂고 확인 창에서 **예**를 누릅니다.
+4. **NEMESIS Manager → Settings → Reboot**으로 재부팅합니다.
+   - 설치 직후에는 바로 바뀌지 않습니다. 실행 중인 화면과 섞이지 않도록 다음 부팅부터 적용합니다.
+   - 시동을 잠깐(3분 정도) 껐다 켜면 Android가 재부팅되지 않고 화면만 꺼졌다 켜집니다(실측). 그래서 적용되지 않습니다. 15분 정도 꺼 두면 재부팅됩니다.
+5. **My Packages → Pretendard System Font → Launch**를 누르면 상태가 토스트로 뜹니다. "적용됨 (11/11)"이면 성공입니다.
+
+## 되돌리기
+
+| 방법 | 결과 |
+|---|---|
+| My Packages → **Uninstall** 후 Reboot | 순정 폰트. 사용 중인 폰트는 재부팅 때 해제됩니다 |
+| `nemesis wipe --confirm` (NEMESIS 전체 삭제) | 자동 재부팅 후 순정 |
+| NEMESIS가 다른 이유로 사라짐 (비상 삭제, `/data` 초기화, 펌웨어 업데이트) | 다음 부팅부터 순정 |
+
+`/system/fonts`의 원본은 한 번도 바뀌지 않으므로, 복원할 백업이 필요 없습니다.
+
+## 빌드
+
+macOS 또는 Linux에서 `curl`, `unzip`, `python3`가 필요합니다.
+
+```bash
+tools/fetch_fonts.sh
+```
+
+```bash
+python3 tools/build.py
+```
+
+- `fetch_fonts.sh`는 Pretendard 1.3.9 공식 릴리스를 받아 sha256을 검증합니다.
+- `build.py`는 `dist/pretendard.systemfont-<버전>.zip`과 설치용 USB 구성 `dist/usb/`를 만듭니다.
+
+테스트에는 Docker가 필요합니다.
+
+```bash
+tests/run.sh
+```
+
+## 동작 방식
+
+부팅 약 3초에 NEMESIS 서비스가 Pretendard를 원래 폰트 파일 위에 bind mount합니다. Android(zygote)가 폰트를 읽는 시점은 약 5.2초라 그보다 먼저입니다. 마운트는 모든 앱 프로세스에 보입니다.
+
+- 바꿀 폰트와 굵기는 [map.conf](package/pretendard.systemfont/files/map.conf)에서 정합니다.
+- 안전장치:
+  - zygote가 이미 폰트를 읽었으면 마운트하지 않습니다.
+  - 마운트한 부팅이 연속 2번 정상 완료되지 않으면 스스로 꺼집니다.
+  - 폰트 md5가 빌드 때와 다르면 그 폰트는 건너뜁니다.
+- 자세한 내용: [package/README.md](package/README.md)
+- 왜 이 방식인지(백업 후 교체 방식과의 비교, 실차 측정값): [docs/diag-findings-DEPEHEV-260902.md](docs/diag-findings-DEPEHEV-260902.md)
 
 ## 구성
 
 ```
-package/pretendard.systemfont/   NEMESIS 패키지 (A안: bind mount)
+package/pretendard.systemfont/   NEMESIS 패키지
   NEMESIS.data                   패키지 정의
   files/map.conf                 어떤 시스템 폰트를 어떤 굵기로 덮을지
   svc/overlay.sh                 부팅 서비스: 마운트 + 부팅 루프 방지
@@ -38,6 +99,10 @@ package/pretendard.systemfont/   NEMESIS 패키지 (A안: bind mount)
 tools/fetch_fonts.sh             Pretendard 1.3.9 내려받기 (sha256 검증)
 tools/build.py                   패키지 zip과 설치용 USB 구성 생성 → dist/
 tests/run.sh                     컨테이너 수명주기 테스트
-diag/                            실차 진단 USB (pfdiag, pfqb)
+diag/                            실차 진단 USB (pfdiag: 폰트·부팅 조사, pfqb: 시동 OFF/ON 동작)
 docs/                            실차 진단 결과
 ```
+
+## 라이선스
+
+Pretendard는 SIL Open Font License 1.1이고, "Pretendard"는 예약 이름(RFN)입니다. 이 패키지는 폰트를 수정하지 않고 원본 그대로 넣으며, `fonts/LICENSE.txt`를 함께 배포합니다.
