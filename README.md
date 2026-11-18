@@ -74,17 +74,41 @@ python3 tools/build.py
 tests/run.sh
 ```
 
-## 동작 방식
+## 시스템을 건드리지 않고 폰트를 바꾸는 방법
 
-부팅 약 3초에 NEMESIS 서비스가 Pretendard를 원래 폰트 파일 위에 bind mount합니다. Android(zygote)가 폰트를 읽는 시점은 약 5.2초라 그보다 먼저입니다. 마운트는 모든 앱 프로세스에 보입니다.
+### 파일을 바꾸지 않고 "위에 겹쳐 보이게" 합니다
 
-- 바꿀 폰트와 굵기는 [map.conf](package/pretendard.systemfont/files/map.conf)에서 정합니다.
-- 안전장치:
-  - zygote가 이미 폰트를 읽었으면 마운트하지 않습니다.
-  - 마운트한 부팅이 연속 2번 정상 완료되지 않으면 스스로 꺼집니다.
-  - 폰트 md5가 빌드 때와 다르면 그 폰트는 건너뜁니다.
-- 자세한 내용: [package/README.md](package/README.md)
-- 왜 이 방식인지(백업 후 교체 방식과의 비교, 실차 측정값): [docs/diag-findings-DEPEHEV-260902.md](docs/diag-findings-DEPEHEV-260902.md)
+- Pretendard 파일은 패키지 폴더(`/data/nemesis/apps/pretendard.systemfont/fonts/`)에만 둡니다.
+- 부팅할 때마다 원래 폰트 경로 위에 Pretendard를 **bind mount**합니다. 예를 들어 `/system/fonts/Roboto-Regular.ttf` 위에 겹칩니다.
+- bind mount는 리눅스 커널이 메모리에서만 들고 있는 "이 경로를 열면 저 파일을 보여 줘"라는 연결입니다. 앱이 원래 경로를 열면 Pretendard가 보이지만, `/system/fonts`의 원본 파일은 디스크에서 **한 바이트도 바뀌지 않습니다**.
+- 이 연결은 디스크에 저장되지 않아서 **전원이 완전히 꺼지면 사라집니다**. 다음 부팅에서 패키지가 다시 걸어 주지 않으면 원래 폰트가 그대로 보입니다.
+
+그래서 순정 복귀에 따로 복원 작업이 필요 없습니다.
+- **패키지를 지우면**: 마운트를 거는 주체가 사라집니다.
+- **NEMESIS를 지우면**: 마운트를 거는 주체가 사라집니다.
+- **`/data`가 초기화되거나 펌웨어가 업데이트되면**: Pretendard 파일 자체가 사라집니다.
+
+어느 경우든 **재부팅하면 순정**입니다. `/system` 파티션에 쓰지 않고, 시스템 설정 파일(`system_fonts.xml` 등)도 고치지 않으며, 백업도 만들지 않습니다.
+
+### 타이밍: Android가 폰트를 읽기 전에 겹칩니다
+
+Android는 부팅 중에 zygote라는 프로세스가 시스템 폰트를 한 번 읽어 두고, 모든 앱이 그것을 물려받습니다. 실차에서 측정한 순서는 이렇습니다.
+
+```
+약 2.9초  NEMESIS 시작 → 이 패키지의 부팅 서비스(svc/overlay.sh)가 바로 마운트
+약 5.2초  zygote가 시스템 폰트를 읽음 → 이미 Pretendard가 보임
+```
+
+마운트는 모든 앱 프로세스에 똑같이 보입니다(실차 확인). 그래서 앱마다 따로 손댈 필요가 없습니다.
+
+### 안전장치
+
+- **늦으면 걸지 않습니다.** zygote가 이미 폰트를 읽은 뒤라면(설치 직후 등) 마운트하지 않고 다음 부팅으로 미룹니다. 옛 폰트와 새 폰트가 섞이지 않게 하려는 것입니다.
+- **부팅 루프를 막습니다.** 마운트한 부팅이 연속 2번 정상적으로 끝나지 않으면 스스로 꺼지고 순정 폰트로 부팅합니다. 정상 판정은 `sys.boot_completed` 이후 zygote가 60초 유지되는 것입니다. 재설치하면 다시 켜집니다.
+- **손상된 폰트는 쓰지 않습니다.** 빌드 때 기록한 md5와 다른 폰트 파일은 건너뜁니다.
+- **지울 때 앱이 깨지지 않습니다.** 앱이 열어 둔 폰트는 재부팅 전까지 그대로 유지되고, 열려 있지 않은 것만 즉시 해제합니다.
+
+바꿀 폰트와 굵기는 [map.conf](package/pretendard.systemfont/files/map.conf)에서 정합니다. 자세한 내용은 [package/README.md](package/README.md)에, 실차 측정 기록은 [docs/diag-findings-DEPEHEV-260902.md](docs/diag-findings-DEPEHEV-260902.md)에 있습니다.
 
 ## 구성
 
