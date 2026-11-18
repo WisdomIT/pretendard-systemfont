@@ -23,10 +23,21 @@
 
 A안이 원칙에 더 맞습니다. 실차 진단 결과 A안이 성립하는 것으로 확인했습니다([docs/diag-findings-DEPEHEV-260902.md](docs/diag-findings-DEPEHEV-260902.md)). NEMESIS 서비스가 zygote의 폰트 로딩보다 약 2.2초 먼저 실행되고, bind mount는 모든 프로세스 네임스페이스에 전파됩니다.
 
+A안으로 구현했습니다. 설치, 빌드, 되돌리기 방법은 [package/README.md](package/README.md)에 있습니다.
+
 ## 구성
 
 ```
-diag/            실차 진단 USB (1단계)
-  usb/NEMESIS.data
-  usb/pfdiag.sh
+package/pretendard.systemfont/   NEMESIS 패키지 (A안: bind mount)
+  NEMESIS.data                   패키지 정의
+  files/map.conf                 어떤 시스템 폰트를 어떤 굵기로 덮을지
+  svc/overlay.sh                 부팅 서비스: 마운트 + 부팅 루프 방지
+  scripts/pre.sh post.sh preun.sh  설치 전 검사, 설치 후 안내, 삭제 시 해제
+  bin/status.sh                  Manager에서 Launch하면 적용 상태 표시
+  lib/common.sh                  공용 함수
+tools/fetch_fonts.sh             Pretendard 1.3.9 내려받기 (sha256 검증)
+tools/build.py                   패키지 zip과 설치용 USB 구성 생성 → dist/
+tests/run.sh                     컨테이너 수명주기 테스트
+diag/                            실차 진단 USB (pfdiag, pfqb)
+docs/                            실차 진단 결과
 ```
