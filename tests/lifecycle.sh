@@ -106,7 +106,7 @@ wait "$SVC"
 check "정상 부팅 확인 후 pending 삭제" '[ ! -f $STATE/pending ] && [ "$(cat $STATE/fails)" = 0 ]'
 check "info: applied 11/11, 이유=ok" '[ "$(istate)" = applied ] && [ "$(reason)" = ok ] && info | grep -q "^mounted=11$"'
 check "info: 묶음별 상태" 'info | grep -q "^group.Roboto=applied 8/8$" && info | grep -q "^group.Mobis=applied 2/2$" && info | grep -q "^group.NanumGothic=applied 1/1$"'
-check "info: 버전 정보" 'info | grep -q "^package=0.2$" && info | grep -q "^pretendard=1.3.9$"'
+check "info: 버전 정보" 'info | grep -q "^package=0.3$" && info | grep -q "^pretendard=1.3.9$"'
 
 echo "== 3. 같은 부팅에서 서비스 재실행 (svcmgr 재시작)"
 echo boot-1 > $STATE/pending
@@ -156,17 +156,31 @@ check "바꿀 폰트가 하나도 없으면 no_targets" '[ "$(reason)" = no_targ
 rmdir /system/fonts; mv /system/fonts.bak /system/fonts; rm -f $STATE/pending
 
 echo "== 6c. 진단 버튼 (bin/diag.sh)"
+D="mksh $APP/bin/diag.sh"
 mkdir -p /usbtest
-check "USB 없으면 error no_usb" '[ "$(mksh $APP/bin/diag.sh start)" = "error no_usb" ]'
+check "처음에는 idle" '$D status | grep -q "^state=idle$"'
+check "USB 없으면 error no_usb" '[ "$($D start)" = "error no_usb" ]'
 export PF_USB_CANDIDATES=/usbtest
-check "start -> started" 'mksh $APP/bin/diag.sh start | grep -q "^started /usbtest"'
-check "실행 중 다시 start -> running" '[ "$(mksh $APP/bin/diag.sh start)" = running ]'
-check "status -> running <초>" 'mksh $APP/bin/diag.sh status | grep -q "^running [0-9]"'
-for i in $(seq 1 240); do mksh $APP/bin/diag.sh status | grep -q "^done" && break; sleep 1; done
-check "진단 완료 -> done <USB 폴더>" 'mksh $APP/bin/diag.sh status | grep -q "^done /usbtest/pfdiag-"'
-check "summary 는 SUMMARY.txt 앞부분" 'mksh $APP/bin/diag.sh summary | grep -q "pretendard-systemfont 진단 결과"'
-check "진단은 마운트 시험을 건너뜀 (이미 적용 중)" 'grep -q "skipped (MOUNT_TEST=0)" /usbtest/pfdiag-*/mounttest/result.txt'
-check "진단 후에도 마운트 그대로" '[ "$(nmounts)" = 11 ] || [ "$(nmounts)" = 0 ]'
+check "start -> started" '$D start | grep -q "^started /usbtest"'
+check "실행 중 다시 start -> running" '[ "$($D start)" = running ]'
+sleep 2
+check "status: running, 경과 초, 시작 시각" '$D status | grep -q "^state=running$" && $D status | grep -q "^elapsed=[0-9]" && $D status | grep -q "^started=[0-9][0-9]:[0-9][0-9]$"'
+check "status: 단계 n/9 와 지금 하는 일" '$D status | grep -q "^stage=[1-9]/9 " && $D status | grep -q "^detail=."'
+for i in $(seq 1 240); do $D status | grep -q "^state=done" && break; sleep 1; done
+check "완료 -> state=done, dir, 걸린 시간" '$D status | grep -q "^state=done$" && $D status | grep -q "^dir=/usbtest/pfdiag-" && $D status | grep -q "^elapsed=[0-9]"'
+check "summary 는 SUMMARY.txt 앞부분" '$D summary | grep -q "pretendard-systemfont 진단 결과"'
+check "빠른 진단: 마운트 시험 생략" 'grep -q "skipped (MOUNT_TEST=0)" /usbtest/pfdiag-*/mounttest/result.txt'
+check "빠른 진단: APK 검사·복사 없음" 'grep -q "apk scan skipped" /usbtest/pfdiag-*/run.log && [ -z "$(ls /usbtest/pfdiag-*/apks/*.apk 2>/dev/null)" ]'
+check "빠른 진단: 폰트 파일 복사 없음" '[ -z "$(ls /usbtest/pfdiag-*/fonts/files/ 2>/dev/null)" ]'
+check "진단 결과에 시리얼·커널 command line 없음" '! grep -rq -i -e "serialno" -e "command line" /usbtest/pfdiag-*/'
+D1=$(ls -d /usbtest/pfdiag-*)
+
+$D start > /dev/null; sleep 2; rm -rf /usbtest/pfdiag-* ; sleep 1
+check "USB 분리(폴더 사라짐) -> error=usb_removed 로 멈춤" '$D status | grep -q "^error=usb_removed$"'
+check "멈춘 뒤 진단 프로세스 없음" '! $D status | grep -q "^state=running"'
+
+$D start > /dev/null; sleep 2; $D stop > /dev/null
+check "중지 버튼 -> error=stopped" '$D status | grep -q "^state=error$" && $D status | grep -q "^error=stopped$"'
 unset PF_USB_CANDIDATES
 
 echo "== 7. 패키지 삭제 (wipe 도 같은 preuninstall 을 실행, zygote 가 폰트를 열고 있음)"

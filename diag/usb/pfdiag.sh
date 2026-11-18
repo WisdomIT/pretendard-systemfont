@@ -19,8 +19,9 @@ export LD_LIBRARY_PATH=/vendor/lib:/system/lib
 
 # ---- 옵션 ------------------------------------------------------------------
 MOUNT_TEST="${PF_MOUNT_TEST:-1}"  # 1: bind mount 시험 수행 (원본과 동일한 사본으로, 즉시 해제)
-COPY_FONTS=1          # 1: /system/fonts 전체를 USB 로 복사 (원본 폰트 기록·분석용)
-COPY_FONT_APKS=1      # 1: 폰트를 품은 것으로 보이는 APK 를 복사 (MAX_APK_KB 이하만)
+COPY_FONTS="${PF_COPY_FONTS:-1}"  # 1: /system/fonts 전체를 USB 로 복사 (원본 폰트 기록·분석용)
+COPY_FONT_APKS="${PF_COPY_FONT_APKS:-1}"  # 1: 폰트를 품은 것으로 보이는 APK 를 복사 (MAX_APK_KB 이하만)
+SCAN_APKS="${PF_SCAN_APKS:-1}"  # 1: APK 안의 폰트 파일 이름 검사 (APK 를 전부 읽어 시간이 걸림)
 MAX_APK_KB=65536
 LS_TIMEOUT=120        # ls -lR 한 번에 허용할 최대 초
 SELF_TIMEOUT=900      # 이 시간(초)이 지나면 스크립트가 스스로 끝난다 (NEMESIS 가 멈춰 있지 않도록)
@@ -67,6 +68,8 @@ FONT_RE_ARGS="-e .ttf -e .otf -e .ttc -e .TTF -e .OTF -e .TTC"
 
 up() { _u=; read _u _rest < /proc/uptime 2>/dev/null; echo "${_u:-?}"; }
 log() { echo "[$(up)] $*" >> "$LOG"; }
+# 진행 단계 (상태 화면이 "진단 중… 2/9 시스템 폰트" 처럼 보여 준다)
+stage() { echo "$*" > "$OUT/stage" 2>/dev/null; log "stage $*"; }
 sum() { echo "$*" >> "$SUM"; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
@@ -151,7 +154,10 @@ sum "--------------------------------------------------------------"
 # ===========================================================================
 # 1. 차량/펌웨어 정보
 # ===========================================================================
-run meta/getprop.txt         getprop
+stage "1/9 차량 정보"
+# 기기 식별 정보(시리얼, BT/Wi-Fi 주소 등)는 남기지 않는다
+getprop 2>&1 | grep -v -i -e serial -e btaddr -e bt_addr -e bdaddr -e macaddr -e wifimac -e 'mac\]' -e imei -e 'vin\]' -e '\.vin' -e iccid -e imsi > "$OUT/meta/getprop.txt"
+log "getprop (identifiers removed)"
 run meta/build.prop          cat /system/build.prop
 run meta/proc_version.txt    cat /proc/version
 run meta/cpuinfo.txt         cat /proc/cpuinfo
@@ -171,6 +177,7 @@ sum ""
 # ===========================================================================
 # 2. 저장공간 / 마운트 / SELinux
 # ===========================================================================
+stage "2/9 저장공간"
 run storage/df.txt            df
 run storage/proc_mounts.txt   cat /proc/mounts
 run storage/mountinfo.txt     cat /proc/self/mountinfo
@@ -187,6 +194,7 @@ sum ""
 # ===========================================================================
 # 3. 시스템 폰트와 설정 파일
 # ===========================================================================
+stage "3/9 시스템 폰트"
 run fonts/ls_fonts.txt        ls -la /system/fonts
 run fonts/ls_fonts_Z.txt      ls -Z /system/fonts
 run fonts/ls_etc.txt          ls -la /system/etc
@@ -229,6 +237,7 @@ sum ""
 # ===========================================================================
 # 4. /system/fonts 밖의 폰트 파일 (앱 전용, 내비 엔진, 클러스터 등)
 # ===========================================================================
+stage "4/9 다른 폰트 파일"
 run_limited "$LS_TIMEOUT" scan/ls_R_system.txt ls -lR /system
 for d in /vendor /oem /hkmc /navi /map /mapdata /appdata /product /data/app /data/app-lib /data/data /data/hkmc /data/navi; do
     [ -d "$d" ] || continue
@@ -274,10 +283,13 @@ sum ""
 # ===========================================================================
 # 5. APK 안에 들어 있는 폰트 (assets/*.ttf 등) - zip 중앙 디렉터리의 파일명을 grep
 # ===========================================================================
+stage "5/9 앱 안의 폰트"
 run apks/pm_list_packages.txt pm list packages -f
 : > "$OUT/apks/apks_with_fonts.txt"
 _napk=0
+[ "$SCAN_APKS" = 1 ] || log "apk scan skipped (SCAN_APKS=0)"
 for f in /system/app/*.apk /system/priv-app/*.apk /system/framework/*.apk /vendor/app/*.apk /data/app/*.apk; do
+    [ "$SCAN_APKS" = 1 ] || break
     [ -f "$f" ] || continue
     _c="$(grep -c $FONT_RE_ARGS "$f" 2>/dev/null)"
     case "$_c" in ''|0) continue ;; esac
@@ -290,13 +302,14 @@ for f in /system/app/*.apk /system/priv-app/*.apk /system/framework/*.apk /vendo
 done
 log "apks with font names=$_napk"
 
-sum "[폰트를 품은 것으로 보이는 APK]  $_napk 개 (파일명 grep 기준, 오탐 가능)"
+if [ "$SCAN_APKS" = 1 ]; then sum "[폰트를 품은 것으로 보이는 APK]  $_napk 개 (파일명 grep 기준, 오탐 가능)"; else sum "[폰트를 품은 것으로 보이는 APK]  검사 생략 (빠른 진단)"; fi
 while read -r l; do sum "  $l"; done < "$OUT/apks/apks_with_fonts.txt"
 sum ""
 
 # ===========================================================================
 # 6. 실행 중 프로세스가 실제로 열어 둔 폰트 (어떤 앱이 시스템 폰트를 쓰는가)
 # ===========================================================================
+stage "6/9 사용 중인 폰트"
 : > "$OUT/runtime/mapped_fonts.txt"
 : > "$OUT/runtime/open_font_fds.txt"
 for _d in /proc/[0-9]*; do
@@ -325,6 +338,7 @@ sum ""
 # ===========================================================================
 # 7. 부팅 순서 (bind mount 를 zygote 보다 먼저 걸 수 있는가)
 # ===========================================================================
+stage "7/9 부팅 순서"
 for f in /init.rc /init.*.rc /ueventd*.rc /system/etc/install-recovery.sh /system/etc/qb_runtime.sh /system/etc/init.*.sh /system/etc/*.sh; do
     [ -f "$f" ] || continue
     _n="$(mangle "$f")"
@@ -334,7 +348,14 @@ run boot/ls_root.txt          ls -la /
 run boot/ns_init.txt          ls -l /proc/1/ns
 run boot/ns_self.txt          ls -l /proc/self/ns
 run boot/proc_stat.txt        cat /proc/stat
-run boot/dmesg.txt            dmesg
+# 커널 command line 에는 시리얼과 BT/Wi-Fi 주소가 있어 빼고, 필요한 항목만 따로 남긴다
+dmesg 2>&1 | grep -v -i -e 'command line' -e serialno -e btaddr -e wifimac > "$OUT/boot/dmesg.txt"
+for _tok in $(cat /proc/cmdline 2>/dev/null); do
+    case "$_tok" in
+        androidboot.qb_prebuilt_mode=*|resume=*|androidboot.hardware=*|active_partition=*|androidboot.mode=*|daudio_hw_ver=*|daudio_lk_ver=*|vehicle_info=*|country_info=*)
+            echo "$_tok" >> "$OUT/boot/cmdline_selected.txt" ;;
+    esac
+done
 run_limited 30 boot/logcat.txt logcat -d -v time -b main -b system -b events
 grep -i -e typeface -e font -e preload -e zygote -e quickboot -e qb_ "$OUT/boot/logcat.txt" > "$OUT/boot/logcat_font_zygote.txt" 2>/dev/null
 grep -i -e quickboot -e qb_ -e snapshot -e hibernat "$OUT/boot/dmesg.txt" > "$OUT/boot/dmesg_qb.txt" 2>/dev/null
@@ -362,6 +383,7 @@ sum ""
 # ===========================================================================
 # 8. NEMESIS 상태
 # ===========================================================================
+stage "8/9 NEMESIS"
 if [ -x /system/xbin/nemesis ]; then
     run nemesis/version.txt   /system/xbin/nemesis version
     run nemesis/pkg_list.txt  /system/xbin/nemesis pkg-list
@@ -386,6 +408,7 @@ sum ""
 #    b) /system/fonts 의 폰트 1개 위에 "바이트 단위로 같은 사본"을 bind
 #       -> 다른 프로세스(zygote, 앱)의 마운트 네임스페이스에 보이는지 확인 후 즉시 해제
 # ===========================================================================
+stage "9/9 마운트 시험"
 MT="$OUT/mounttest/result.txt"
 mt() { echo "$*" >> "$MT"; }
 sum "[bind mount 시험]"

@@ -108,12 +108,21 @@ else
 fi
 
 # 증거 수집
-lim 15 "$RUN/dmesg.txt" dmesg
+lim 15 "$RUN/dmesg.all" dmesg
+# 커널 command line 에는 시리얼과 BT/Wi-Fi 주소가 있으므로 빼고 저장한다
+grep -v -i -e 'command line' -e serialno -e btaddr -e wifimac "$RUN/dmesg.all" > "$RUN/dmesg.txt" 2>/dev/null
+rm -f "$RUN/dmesg.all"
 grep -i -e 'PM:' -e suspend -e resume -e hibernat -e snapshot -e restore -e quickboot -e 'qb_' -e 'Freezing' -e 'Restarting tasks' "$RUN/dmesg.txt" > "$RUN/dmesg_pm.txt" 2>/dev/null
 lim 20 "$RUN/logcat_events.txt" logcat -d -v time -b events
 grep -e boot_progress -e power_sleep -e power_screen "$RUN/logcat_events.txt" > "$RUN/boot_progress.txt" 2>/dev/null
-lim 10 "$RUN/getprop.txt" getprop
-cat /proc/cmdline > "$RUN/cmdline.txt" 2>&1
+lim 10 "$RUN/getprop.all" getprop
+grep -v -i -e serial -e btaddr -e bdaddr -e macaddr -e wifimac -e imei "$RUN/getprop.all" > "$RUN/getprop.txt" 2>/dev/null
+rm -f "$RUN/getprop.all"
+for _tok in $(cat /proc/cmdline 2>/dev/null); do
+    case "$_tok" in
+        androidboot.qb_prebuilt_mode=*|resume=*|androidboot.hardware=*|active_partition=*) echo "$_tok" >> "$RUN/cmdline.txt" ;;
+    esac
+done
 lim 5 "$RUN/power_state.txt" cat /sys/power/state
 lim 15 "$RUN/cp_err.txt" cp /data/nemesis/nemesis.log "$RUN/nemesis.log"
 grep -e 'watchdog start' -e 'svcmgr start' "$RUN/nemesis.log" > "$RUN/nemesis_starts.txt" 2>/dev/null
