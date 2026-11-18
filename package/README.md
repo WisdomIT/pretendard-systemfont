@@ -15,7 +15,9 @@ Gen5W(S5W_M) 인포테인먼트의 시스템 폰트를 Pretendard로 바꾸는 N
 | `Mobis-Bold` | Bold | 원래 CubeBa1 |
 | `NanumGothic` | Regular | 한글 대체 폰트 |
 
-`RobotoCondensed`는 그대로 둡니다. 홈 화면, 공조, 블루투스, 음성, 내비 지도처럼 앱이 자체 폰트를 쓰는 화면도 이 패키지로는 바뀌지 않습니다.
+`RobotoCondensed`는 그대로 둡니다.
+
+실차에서는 런처의 메인 화면과 앱 목록을 빼고 내비게이션과 기본 앱 전부가 Pretendard로 바뀌었습니다. 런처는 APK 안의 자체 폰트를 직접 불러와서 바뀌지 않습니다. 화면별 목록과 알려진 표시 차이는 [루트 README](../README.md#적용-범위-실차-확인)에 있습니다.
 
 ## 빌드
 

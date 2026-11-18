@@ -24,7 +24,7 @@
 | 그 밖의 대체 폰트 | `DroidSansFallback.ttf` | Droid Sans Fallback | 거의 없음(3자) | 한자 |
 | 대체 폰트 목록에만 있음 | `Mobis-Fallback-China.ttf`, `Mobis-Fallback1.ttf` | 파일 없음 | | |
 
-## 시스템 폰트를 바꿔도 그대로인 화면
+## APK 안에 폰트가 들어 있는 앱 (진단 시점 예상)
 
 | 위치 | 폰트 | 비고 |
 |---|---|---|
@@ -38,6 +38,8 @@
 | `RightScreenHome.apk`(99MB), `HKMC_VehicleSetting.apk`(348MB) | 미확인 | 64MB가 넘어 복사하지 않음 |
 
 APK 파일 이름만 grep해서 찾은 후보는 48개였습니다. 실제로 zip을 열어 보니 폰트가 들어 있는 APK는 위의 6개뿐이었습니다(나머지 2개는 미확인).
+
+> **실차 적용 결과 (2026-11-18)**: 예상과 달리 **런처의 메인 화면과 앱 목록만** 그대로였습니다. 공조, 음성인식, 내비게이션을 포함한 나머지는 모두 Pretendard로 바뀌었습니다. 공조나 음성인식 앱은 APK에 Cube 폰트를 넣어 두었지만, 실제 화면 대부분은 시스템 폰트로 그리는 것으로 보입니다. 화면별 목록은 [README](../README.md#적용-범위-실차-확인)에 있습니다.
 
 ## 부팅 순서
 
@@ -61,12 +63,10 @@ APK 파일 이름만 grep해서 찾은 후보는 48개였습니다. 실제로 zi
 
 ## 결론
 
-1. **A안(`/system` 무변경, bind mount)이 이 차량에서 성립합니다.** NEMESIS 서비스가 zygote의 폰트 로딩보다 약 2.2초 먼저 실행되고, 마운트는 모든 프로세스에 보입니다.
+1. **`/system`을 바꾸지 않는 bind mount 방식이 이 차량에서 성립합니다.** NEMESIS 서비스가 zygote의 폰트 로딩보다 약 2.2초 먼저 실행되고, 마운트는 모든 프로세스에 보입니다.
 2. 바꿀 대상은 Roboto(기본), Mobis(`devicedefault`, Kia Cube), NanumGothic(한글 대체)입니다. RobotoCondensed는 Pretendard에 좁은 폭이 없어서 그대로 둡니다.
-3. 홈 화면, 공조, 블루투스, 음성, 내비 지도는 앱 자체 폰트를 써서 1단계에서는 바뀌지 않습니다. 2단계 후보:
-   - HMG-API 훅으로 `Typeface.createFromAsset` 가로채기
-   - 내비 폰트 파일 bind mount
-4. 시동 OFF/ON 동작은 아래 QuickBoot 확인에서 정리했습니다. 이미지 복원(hibernation)은 없어서 A안의 위험 요소가 아닙니다.
+3. 앱 자체 폰트를 쓰는 화면은 바뀌지 않을 것으로 예상했습니다. 실차에서는 **런처(메인 화면, 앱 목록)만** 해당했습니다. 런처는 HMG-API 훅으로 `Typeface.createFromAsset`을 가로채는 방법이 후보이며, 현재 보류 중입니다.
+4. 시동 OFF/ON 동작은 아래 QuickBoot 확인에서 정리했습니다. 이미지 복원(hibernation)은 없어서 bind mount 방식의 위험 요소가 아닙니다.
 
 ## QuickBoot 확인 (2026-11-18, `diag/usb-qb/pfqb.sh`)
 
@@ -80,7 +80,7 @@ APK 파일 이름만 grep해서 찾은 후보는 48개였습니다. 실제로 zi
 - ②와 ③은 dmesg에 `PM: suspend` 흔적이 없습니다. 커널 로그 시각(약 278초)도 uptime(277.9초)과 같습니다. **suspend조차 들어가지 않고, 화면만 꺼진 채 계속 동작한 것입니다.** "기아 로고 없이 바로 확인 창이 떴다"는 관찰과 맞습니다.
 - 저장된 이미지로 복원하는 경우는 관찰되지 않았습니다(`qb_prebuilt_mode=disable`). 꺼지는 경우는 콜드부팅뿐이라, 부팅 때마다 마운트가 다시 걸립니다.
 - 콜드부팅으로 넘어가는 OFF 시간의 경계는 3분과 15분 사이로, 정확한 값은 모릅니다.
-- 덤: dmesg에 `hmgapi-hook: app_process, exec /system/bin/app_process.hmgapi-stock`가 있습니다. HMG-API가 zygote 실행 파일을 감싸고 있으므로, 2단계(앱 자체 폰트)에서 활용할 수 있습니다.
+- 덤: dmesg에 `hmgapi-hook: app_process, exec /system/bin/app_process.hmgapi-stock`가 있습니다. HMG-API가 zygote 실행 파일을 감싸고 있으므로, 런처 폰트 작업에서 활용할 수 있습니다.
 
 ### 패키지 설계에 주는 의미
 
