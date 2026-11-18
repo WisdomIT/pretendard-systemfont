@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         차량의 상태 화면(NEMESIS Manager → Pretendard System Font → Launch)에서 QR을 스캔했다면 아래 차량 정보가 이미 채워져 있습니다.
-        가능하면 상태 화면의 **진단 실행**으로 만든 USB의 `pfdiag-…/SUMMARY.txt`도 첨부해 주세요.
+        가능하면 상태 화면의 **진단 실행** 결과도 첨부해 주세요. 진단이 끝나면 USB 최상위에 `pfdiag-날짜-시간-번호` 폴더(예: `pfdiag-20261118-222142-3551`)가 생기고, 그 안의 `SUMMARY.txt`를 올리면 됩니다.
 
   - type: textarea
     id: what
@@ -66,5 +66,5 @@ body:
     id: diag
     attributes:
       label: 진단 결과
-      description: USB의 `pfdiag-…/SUMMARY.txt` 내용을 붙여 넣거나 파일을 첨부해 주세요. (OEM 폰트·APK가 든 다른 파일은 올리지 마세요)
+      description: "USB 최상위의 `pfdiag-날짜-시간-번호` 폴더(예: `pfdiag-20261118-222142-3551`) 안에 있는 `SUMMARY.txt` 내용을 붙여 넣거나 파일을 첨부해 주세요. (`fonts/files`, `apks` 폴더는 OEM 원본이라 올리지 마세요)"
       render: text

@@ -163,7 +163,7 @@ public final class StatusActivity extends Activity {
         qrTitle.setTypeface(Typeface.DEFAULT_BOLD);
         qrTitle.setGravity(Gravity.CENTER);
         right.addView(qrTitle, margins(-2, -2, 0, dp(14), 0, 0));
-        TextView qrCaption = text("휴대폰으로 스캔하면 GitHub 이슈 작성 화면이 열립니다. 이 차의 펌웨어와 버전이 미리 채워집니다. 진단을 했다면 SUMMARY.txt를 첨부해 주세요.", 14, SUB);
+        TextView qrCaption = text("휴대폰으로 스캔하면 GitHub 이슈 작성 화면이 열립니다. 이 차의 펌웨어와 버전이 미리 채워집니다. 진단을 했다면 USB의 pfdiag 폴더 안 SUMMARY.txt를 첨부해 주세요.", 14, SUB);
         qrCaption.setGravity(Gravity.CENTER);
         right.addView(qrCaption, margins(-1, -2, 0, dp(6), 0, 0));
         return root;
@@ -374,7 +374,7 @@ public final class StatusActivity extends Activity {
             if (sawRunning) {
                 diagTitle.setTextColor(GOOD_FG);
                 diagTitle.setText("진단 완료 · " + st.num("elapsed") + "초");
-                diagDetail.setText("USB의 " + folder + " 폴더에 저장했습니다. 문제를 알릴 때는 그 안의 SUMMARY.txt를 첨부해 주세요.");
+                diagDetail.setText("USB 최상위의 " + folder + " 폴더에 저장했습니다. 문제를 알릴 때는 그 폴더 안의 SUMMARY.txt를 첨부해 주세요.");
                 if (sum != null) { summary.setText(sum.trim()); summary.setVisibility(View.VISIBLE); }
             } else {
                 diagTitle.setTextColor(SUB);

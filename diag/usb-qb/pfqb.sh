@@ -16,6 +16,14 @@
 export PATH=/sbin:/vendor/bin:/system/sbin:/system/bin:/system/xbin
 export LD_LIBRARY_PATH=/vendor/lib:/system/lib
 
+# MAC 주소가 든 줄을 뺀다. 이 기기의 grep 이 -E 를 못 하면 그대로 통과시킨다.
+MAC_RE='([0-9A-Fa-f][0-9A-Fa-f]:){5}[0-9A-Fa-f][0-9A-Fa-f]'
+if echo "aa:bb:cc:dd:ee:ff" | grep -q -E "$MAC_RE" 2>/dev/null; then
+    drop_mac() { grep -v -E "$MAC_RE"; }
+else
+    drop_mac() { cat; }
+fi
+
 CLEANUP=0
 SELF_TIMEOUT=90       # 이 시간(초)이 지나면 스크립트가 스스로 끝난다 (NEMESIS 가 멈춰 있지 않도록)
 
@@ -110,11 +118,12 @@ fi
 # 증거 수집
 lim 15 "$RUN/dmesg.all" dmesg
 # 커널 command line 에는 시리얼과 BT/Wi-Fi 주소가 있으므로 빼고 저장한다
-grep -v -i -e 'command line' -e serialno -e btaddr -e wifimac "$RUN/dmesg.all" > "$RUN/dmesg.txt" 2>/dev/null
+grep -v -i -e 'command line' -e serialno -e btaddr -e wifimac "$RUN/dmesg.all" 2>/dev/null | drop_mac > "$RUN/dmesg.txt"
 rm -f "$RUN/dmesg.all"
 grep -i -e 'PM:' -e suspend -e resume -e hibernat -e snapshot -e restore -e quickboot -e 'qb_' -e 'Freezing' -e 'Restarting tasks' "$RUN/dmesg.txt" > "$RUN/dmesg_pm.txt" 2>/dev/null
-lim 20 "$RUN/logcat_events.txt" logcat -d -v time -b events
-grep -e boot_progress -e power_sleep -e power_screen "$RUN/logcat_events.txt" > "$RUN/boot_progress.txt" 2>/dev/null
+lim 20 "$RUN/logcat_events.raw" logcat -d -v time -b events
+grep -e boot_progress -e power_sleep -e power_screen "$RUN/logcat_events.raw" > "$RUN/boot_progress.txt" 2>/dev/null
+rm -f "$RUN/logcat_events.raw"   # 원본에는 앱 사용 기록이 섞여 있어 남기지 않는다
 lim 10 "$RUN/getprop.all" getprop
 grep -v -i -e serial -e btaddr -e bdaddr -e macaddr -e wifimac -e imei "$RUN/getprop.all" > "$RUN/getprop.txt" 2>/dev/null
 rm -f "$RUN/getprop.all"

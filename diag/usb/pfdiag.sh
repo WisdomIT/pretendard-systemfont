@@ -17,6 +17,14 @@
 export PATH=/sbin:/vendor/bin:/system/sbin:/system/bin:/system/xbin
 export LD_LIBRARY_PATH=/vendor/lib:/system/lib
 
+# MAC 주소가 든 줄을 뺀다. 이 기기의 grep 이 -E 를 못 하면 그대로 통과시킨다.
+MAC_RE='([0-9A-Fa-f][0-9A-Fa-f]:){5}[0-9A-Fa-f][0-9A-Fa-f]'
+if echo "aa:bb:cc:dd:ee:ff" | grep -q -E "$MAC_RE" 2>/dev/null; then
+    drop_mac() { grep -v -E "$MAC_RE"; }
+else
+    drop_mac() { cat; }
+fi
+
 # ---- 옵션 ------------------------------------------------------------------
 MOUNT_TEST="${PF_MOUNT_TEST:-1}"  # 1: bind mount 시험 수행 (원본과 동일한 사본으로, 즉시 해제)
 COPY_FONTS="${PF_COPY_FONTS:-1}"  # 1: /system/fonts 전체를 USB 로 복사 (원본 폰트 기록·분석용)
@@ -270,6 +278,11 @@ for f in "$OUT"/scan/ls_R*.txt; do
 done
 _nout=0
 while read -r l; do _nout=$((_nout + 1)); done < "$OUT/scan/font_files_outside_system_fonts.txt"
+# /data, /storage 등의 전체 파일 목록에는 사용자 파일 이름(사진, 캐시 등)이 들어 있으므로
+# 폰트 파일만 뽑은 위 목록을 남기고 원본 목록은 지운다. /system, /vendor 목록만 남긴다.
+for f in "$OUT"/scan/ls_R*.txt; do
+    case "$f" in */ls_R_system.txt|*/ls_R_vendor.txt) ;; *) rm -f "$f" ;; esac
+done
 
 sum "[/system/fonts 밖의 폰트 파일]  $_nout 개"
 _k=0
@@ -349,17 +362,22 @@ run boot/ns_init.txt          ls -l /proc/1/ns
 run boot/ns_self.txt          ls -l /proc/self/ns
 run boot/proc_stat.txt        cat /proc/stat
 # 커널 command line 에는 시리얼과 BT/Wi-Fi 주소가 있어 빼고, 필요한 항목만 따로 남긴다
-dmesg 2>&1 | grep -v -i -e 'command line' -e serialno -e btaddr -e wifimac > "$OUT/boot/dmesg.txt"
+dmesg 2>&1 | grep -v -i -e 'command line' -e serialno -e btaddr -e wifimac | drop_mac > "$OUT/boot/dmesg.txt"
 for _tok in $(cat /proc/cmdline 2>/dev/null); do
     case "$_tok" in
         androidboot.qb_prebuilt_mode=*|resume=*|androidboot.hardware=*|active_partition=*|androidboot.mode=*|daudio_hw_ver=*|daudio_lk_ver=*|vehicle_info=*|country_info=*)
             echo "$_tok" >> "$OUT/boot/cmdline_selected.txt" ;;
     esac
 done
-run_limited 30 boot/logcat.txt logcat -d -v time -b main -b system -b events
-grep -i -e typeface -e font -e preload -e zygote -e quickboot -e qb_ "$OUT/boot/logcat.txt" > "$OUT/boot/logcat_font_zygote.txt" 2>/dev/null
+# logcat 전체에는 BT 주소, 연락처 동기화, 위치 같은 개인 정보가 섞여 있어 그대로 남기지 않는다.
+# 폰트·부팅 관련 줄만 골라 저장하고 원본은 지운다.
+run_limited 30 boot/logcat.raw logcat -d -v time -b main -b system -b events
+grep -i -e typeface -e font -e preload -e zygote -e quickboot -e qb_ -e boot_progress -e nemesis -e pretendard "$OUT/boot/logcat.raw" 2>/dev/null \
+    | grep -v -i -e btaddr -e bdaddr -e serial -e contact -e phone -e number -e address -e location -e latitude -e longitude \
+    | drop_mac > "$OUT/boot/logcat_font_zygote.txt"
+rm -f "$OUT/boot/logcat.raw"
 grep -i -e quickboot -e qb_ -e snapshot -e hibernat "$OUT/boot/dmesg.txt" > "$OUT/boot/dmesg_qb.txt" 2>/dev/null
-getprop | grep -i -e init.svc -e qb -e quick -e boot > "$OUT/boot/props_boot.txt" 2>/dev/null
+grep -i -e init.svc -e qb -e quick -e boot "$OUT/meta/getprop.txt" > "$OUT/boot/props_boot.txt" 2>/dev/null   # 식별 정보를 뺀 getprop 에서
 
 # 주요 프로세스 시작 시각 (clock tick, 보통 100Hz). 숫자가 작을수록 먼저 시작.
 : > "$OUT/boot/start_ticks.txt"

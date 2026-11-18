@@ -65,5 +65,5 @@ body:
     id: diag
     attributes:
       label: 진단 결과
-      description: 상태 화면의 **진단 실행** 후 USB의 `pfdiag-…/SUMMARY.txt`를 붙여 넣거나 첨부해 주세요.
+      description: "상태 화면의 **진단 실행**이 끝나면 USB 최상위에 `pfdiag-날짜-시간-번호` 폴더(예: `pfdiag-20261118-222142-3551`)가 생깁니다. 그 안의 `SUMMARY.txt`를 붙여 넣거나 첨부해 주세요."
       render: text

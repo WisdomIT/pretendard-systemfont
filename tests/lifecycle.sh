@@ -106,7 +106,7 @@ wait "$SVC"
 check "정상 부팅 확인 후 pending 삭제" '[ ! -f $STATE/pending ] && [ "$(cat $STATE/fails)" = 0 ]'
 check "info: applied 11/11, 이유=ok" '[ "$(istate)" = applied ] && [ "$(reason)" = ok ] && info | grep -q "^mounted=11$"'
 check "info: 묶음별 상태" 'info | grep -q "^group.Roboto=applied 8/8$" && info | grep -q "^group.Mobis=applied 2/2$" && info | grep -q "^group.NanumGothic=applied 1/1$"'
-check "info: 버전 정보" 'info | grep -q "^package=0.3$" && info | grep -q "^pretendard=1.3.9$"'
+check "info: 버전 정보" 'info | grep -q "^package=0.4$" && info | grep -q "^pretendard=1.3.9$"'
 
 echo "== 3. 같은 부팅에서 서비스 재실행 (svcmgr 재시작)"
 echo boot-1 > $STATE/pending
@@ -173,6 +173,9 @@ check "빠른 진단: 마운트 시험 생략" 'grep -q "skipped (MOUNT_TEST=0)"
 check "빠른 진단: APK 검사·복사 없음" 'grep -q "apk scan skipped" /usbtest/pfdiag-*/run.log && [ -z "$(ls /usbtest/pfdiag-*/apks/*.apk 2>/dev/null)" ]'
 check "빠른 진단: 폰트 파일 복사 없음" '[ -z "$(ls /usbtest/pfdiag-*/fonts/files/ 2>/dev/null)" ]'
 check "진단 결과에 시리얼·커널 command line 없음" '! grep -rq -i -e "serialno" -e "command line" /usbtest/pfdiag-*/'
+check "logcat 원본을 남기지 않음" '[ -z "$(ls /usbtest/pfdiag-*/boot/logcat.raw /usbtest/pfdiag-*/boot/logcat.txt 2>/dev/null)" ]'
+check "사용자 파일 목록(/data 등)을 남기지 않음, system·vendor 만" '[ -z "$(ls /usbtest/pfdiag-*/scan/ | grep ^ls_R | grep -v -e ls_R_system.txt -e ls_R_vendor.txt)" ]'
+check "MAC 주소가 든 줄 없음" '! grep -rqE "([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}" /usbtest/pfdiag-*/boot /usbtest/pfdiag-*/meta'
 D1=$(ls -d /usbtest/pfdiag-*)
 
 $D start > /dev/null; sleep 2; rm -rf /usbtest/pfdiag-* ; sleep 1

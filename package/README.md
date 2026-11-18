@@ -66,7 +66,7 @@ python3 tools/build.py
 tests/run.sh
 ```
 
-Docker의 Linux 컨테이너에서 실차 셸(mksh)과 KitKat toolbox 제약을 흉내 내어 수명주기 전체를 검사합니다(58개 항목).
+Docker의 Linux 컨테이너에서 실차 셸(mksh)과 KitKat toolbox 제약을 흉내 내어 수명주기 전체를 검사합니다(61개 항목).
 
 - 설치
 - 부팅 적용
