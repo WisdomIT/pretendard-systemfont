@@ -75,6 +75,8 @@ def main() -> int:
         return 1
 
     DIST.mkdir(exist_ok=True)
+    for old in DIST.glob(f"{pkg_id}-*.zip"):   # 예전 버전 zip 은 남기지 않는다
+        old.unlink()
     zpath = DIST / f"{pkg_id}-{version}.zip"
     members = []
     for p in sorted(PKG.rglob("*")):

@@ -106,7 +106,7 @@ wait "$SVC"
 check "정상 부팅 확인 후 pending 삭제" '[ ! -f $STATE/pending ] && [ "$(cat $STATE/fails)" = 0 ]'
 check "info: applied 11/11, 이유=ok" '[ "$(istate)" = applied ] && [ "$(reason)" = ok ] && info | grep -q "^mounted=11$"'
 check "info: 묶음별 상태" 'info | grep -q "^group.Roboto=applied 8/8$" && info | grep -q "^group.Mobis=applied 2/2$" && info | grep -q "^group.NanumGothic=applied 1/1$"'
-check "info: 버전 정보" 'info | grep -q "^package=0.1$" && info | grep -q "^pretendard=1.3.9$"'
+check "info: 버전 정보" 'info | grep -q "^package=0.2$" && info | grep -q "^pretendard=1.3.9$"'
 
 echo "== 3. 같은 부팅에서 서비스 재실행 (svcmgr 재시작)"
 echo boot-1 > $STATE/pending
