@@ -131,7 +131,13 @@ NEMESIS Manager → **My Packages → Pretendard System Font → Launch**를 누
 - 음성인식 화면과 음성인식을 통한 내비 검색
 - NEMESIS Manager 같은 추가 앱
 
-**바뀌지 않는 곳**: 런처의 첫 화면과 앱 목록뿐입니다. 런처가 앱 안에 넣어 둔 전용 글꼴(Cube)을 직접 쓰기 때문입니다. 바꾸는 방법을 조사했지만 지금은 보류 중입니다.
+**바뀌지 않는 곳**: 런처의 첫 화면과 앱 목록뿐입니다(홈 편집 화면 포함).
+
+- **이유**: 다른 앱은 시스템 글꼴을 쓰지만, 런처는 앱 안에 넣어 둔 전용 글꼴 `fonts/CubeN.ttf`를 직접 불러옵니다(`Typeface.createFromAsset`). 이 패키지는 `/system/fonts`의 시스템 글꼴만 바꾸므로 런처에는 닿지 않습니다.
+- **해결 계획**: 런처 앱이나 `/system`을 고치지 않고, 런처가 전용 글꼴을 불러올 때 시스템 글꼴(Pretendard)을 대신 돌려주는 방법을 쓸 계획입니다. 이를 위해 [HMG-API](https://github.com/Open-HMG/HMG-API)에 해당 지점을 가로챌 수 있게 해 달라는 훅 포인트 요청([Open-HMG/HMG-API#338](https://github.com/Open-HMG/HMG-API/issues/338))을 올려 두었습니다.
+  - 받아들여지면 HMG-API를 쓰는 사람만 따로 설치하는 **선택 기능**으로 만듭니다.
+  - 기본 패키지는 지금처럼 NEMESIS만 있으면 됩니다.
+- 조사 내용: [docs/launcher-font-research.md](docs/launcher-font-research.md)
 
 ### 알려진 표시 차이
 
@@ -302,6 +308,7 @@ Android는 부팅 중에 zygote라는 프로세스가 시스템 폰트를 한 �
 | 진단 결과의 개인 정보 정리 (0.4) | 확인 (재부팅 전후 2회, 식별 정보 없음, 결과 1.1MB) |
 | 부팅 때 마운트 시간 단축 (0.5) | 확인 (마운트 1.8초 → 1.2초, 폰트 로딩 전 여유 0.6초 → 1.1초) |
 | 부팅 경로의 프로세스 실행 202회 → 16회 (0.6) | 확인 (마운트 0.45초, 폰트 로딩 전 여유 1.6초) |
+| 런처 글꼴 | 미적용. 원인 확인, HMG-API 훅 포인트 요청 중 ([#338](https://github.com/Open-HMG/HMG-API/issues/338)) |
 | 다른 차종·펌웨어 | 미확인. 확인된 차 목록은 [동작 확인 차량](docs/COMPATIBILITY.md)에 있고, [차량 호환성 보고](https://github.com/WisdomIT/pretendard-systemfont/issues/new?template=car_report.yml)로 알려 주시면 추가합니다. |
 
 ## 구성
