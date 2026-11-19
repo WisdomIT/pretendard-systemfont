@@ -13,3 +13,4 @@ dist/
 package/pretendard.systemfont/app/
 # 런처 확인용 수집 결과 (OEM odex/APK/framework) - 커밋 금지
 pflauncher-*/
+__pycache__/
