@@ -104,3 +104,5 @@ python3 tools/dexrefs.py pflauncher-*/app/*.odex
 
 - 글꼴 파일 이름 문자열과 `Typeface` 생성 메서드 호출을 함께 쓰는 메서드를 "글꼴 로딩 지점"으로 보여 줍니다.
 - **수집한 파일은 기아·현대의 원본입니다. 개인 분석에만 쓰고 GitHub 등에 올리지 마세요.** `.gitignore`가 `pflauncher-*/`를 막고 있습니다.
+
+조사 결과는 [docs/launcher-font-research.md](../docs/launcher-font-research.md)에 정리했습니다.
