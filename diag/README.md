@@ -84,3 +84,25 @@ bind mount 시험은 `/system/fonts`의 폰트 하나에 **바이트 단위로 �
 | `/system` 남은 용량 | B안을 쓸 수 있는지, 어떤 굵기를 넣을지 |
 | `/system/fonts` 밖의 폰트, APK 안의 폰트, 매핑 결과 | 바뀌지 않는 화면의 범위 |
 | md5 | 펌웨어별 원본 지문 (원복 검증 기준) |
+
+## 런처 글꼴 확인 (usb-launcher)
+
+런처가 자체 글꼴(Cube)을 어떻게 불러오는지 확인하기 위한 수집 스크립트입니다. HMG-API에 훅 포인트를 요청하기 전에 근거를 얻으려고 씁니다.
+
+1. [usb-launcher/](usb-launcher/)의 `NEMESIS.data`와 `pflauncher.sh`를 USB 맨 위에 복사합니다. 기존 `NEMESIS.data`는 덮어씁니다.
+2. 차에 꽂고 **예**를 누릅니다. 1분 안팎이면 끝납니다.
+3. USB 맨 위에 `pflauncher-날짜-시간-번호` 폴더가 생깁니다. 안에는 다음이 들어 있습니다.
+   - `app/`: 런처와 Cube 폰트를 넣어 둔 앱들의 `.odex`, 런처 APK
+   - `framework/`: 부트 클래스패스 파일 (baksmali용)
+   - `bootclasspath.txt`, `firmware.txt`
+
+분석은 컴퓨터에서 합니다.
+
+```bash
+python3 tools/dexrefs.py pflauncher-*/app/*.odex
+```
+
+- 글꼴 파일 이름 문자열과 `Typeface` 생성 메서드 호출을 함께 쓰는 메서드를 "글꼴 로딩 지점"으로 보여 줍니다.
+- **수집한 파일은 기아·현대의 원본입니다. 개인 분석에만 쓰고 GitHub 등에 올리지 마세요.** `.gitignore`가 `pflauncher-*/`를 막고 있습니다.
+
+조사 결과는 [docs/launcher-font-research.md](../docs/launcher-font-research.md)에 정리했습니다.
